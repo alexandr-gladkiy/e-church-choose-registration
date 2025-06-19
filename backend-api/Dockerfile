@@ -1,12 +1,11 @@
 # Используем официальный Node.js образ
 FROM node:18-alpine
 
-# Устанавливаем рабочую директорию
+# Рабочая директория
 WORKDIR /app
 
 # Копируем package.json и package-lock.json
-COPY package.json ./
-COPY package-lock.json ./
+COPY package*.json ./
 
 # Устанавливаем зависимости
 RUN npm install
@@ -14,11 +13,11 @@ RUN npm install
 # Копируем исходный код
 COPY . .
 
-# Собираем приложение
-RUN npm run build
-
 # Открываем порт
-EXPOSE 5174
+EXPOSE 4000
 
-# Запускаем приложение
-CMD ["npm", "run", "preview", "--", "--host", "0.0.0.0", "--port", "5174"] 
+# Переменные окружения по умолчанию (можно переопределить через docker-compose)
+ENV PORT=4000
+
+# Запуск приложения
+CMD ["node", "index.js"] 

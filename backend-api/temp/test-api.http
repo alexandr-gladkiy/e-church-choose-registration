@@ -1,0 +1,80 @@
+### Получить всех участников
+GET http://localhost:3000/api/users
+
+### Добавить участника
+POST http://localhost:3000/api/users
+Content-Type: application/json
+
+{
+  "full_name": "Иван Иванов",
+  "email": "ivan@example.com",
+  "phone": "+79991234567",
+  "city": "Москва",
+  "church_name": "Церковь Свет",
+  "need_accommodation": true,
+  "comments": "Без комментариев",
+  "telegram_id": 123456789,
+  "telegram_username": "ivanivanov"
+}
+
+### Получить участника по id
+GET http://localhost:3000/api/users/1
+
+### Изменить участника
+PUT http://localhost:3000/api/users/1
+Content-Type: application/json
+
+{
+  "full_name": "Иван Иванов",
+  "email": "ivan2@example.com",
+  "phone": "+79991234567",
+  "city": "Москва",
+  "church_name": "Церковь Свет",
+  "need_accommodation": false,
+  "comments": "Обновлено",
+  "telegram_id": 123456789,
+  "telegram_username": "ivanivanov"
+}
+
+### Отменить регистрацию участника
+POST http://localhost:3000/api/users/1/cancel
+
+### Удалить участника
+DELETE http://localhost:3000/api/users/1
+
+### Вход администратора
+POST http://localhost:3000/api/admins/login
+Content-Type: application/json
+
+{
+  "username": "admin",
+  "password": "admin1234"
+}
+
+### Получить текущего админа (требуется Bearer TOKEN)
+GET http://localhost:3000/api/admins/me
+Authorization: Bearer {{TOKEN}}
+
+### Сменить пароль (требуется Bearer TOKEN)
+POST http://localhost:3000/api/admins/change-password
+Authorization: Bearer {{TOKEN}}
+Content-Type: application/json
+
+{
+  "oldPassword": "adminpassword",
+  "newPassword": "newpassword"
+}
+
+### Получить настройки регистрации
+GET http://localhost:3000/api/registration-settings
+
+### Изменить настройки регистрации (требуется Bearer TOKEN)
+PUT http://localhost:3000/api/registration-settings
+Authorization: Bearer {{TOKEN}}
+Content-Type: application/json
+
+{
+  "is_open": false,
+  "registration_start": "2024-06-01T00:00:00Z",
+  "registration_deadline": "2024-07-01T00:00:00Z"
+} 

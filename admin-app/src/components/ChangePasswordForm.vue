@@ -1,38 +1,70 @@
 <template>
-  <form class="change-password-form" @submit.prevent="onChangePassword">
-    <h3>Сменить пароль</h3>
-    <div class="form-group">
-      <label>Старый пароль:<input v-model="oldPassword" type="password" required></label>
+  <form class="card p-4 shadow-sm mx-auto" style="max-width:400px;" @submit.prevent="onChangePassword">
+    <h3 class="h5 text-center mb-4">Сменить пароль</h3>
+    <div class="mb-3">
+      <label class="form-label">Старый пароль:<span class="text-danger">*</span>
+        <input v-model="oldPassword" type="password" class="form-control" required />
+      </label>
     </div>
-    <div class="form-group">
-      <label>Новый пароль:<input v-model="newPassword" type="password" required></label>
+    <div class="mb-3">
+      <label class="form-label">Новый пароль:<span class="text-danger">*</span>
+        <input v-model="newPassword" type="password" class="form-control" required />
+      </label>
     </div>
-    <button class="btn">Сменить</button>
-    <div v-if="error" class="error">{{ error }}</div>
-    <div v-if="success" class="success">{{ success }}</div>
+    <button class="btn btn-warning w-100 d-flex align-items-center justify-content-center" :disabled="loading">
+      <span v-if="loading" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+      Сменить
+    </button>
+    <div v-if="error" class="alert alert-danger mt-3 text-center">{{ error }}</div>
+    <div v-if="success" class="alert alert-success mt-3 text-center">{{ success }}</div>
   </form>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 const emit = defineEmits(['change-password'])
 const oldPassword = ref('')
 const newPassword = ref('')
 const error = ref('')
 const success = ref('')
+const loading = ref(false)
+
+watch(success, (val) => {
+  if (val) {
+    oldPassword.value = ''
+    newPassword.value = ''
+    setTimeout(() => {
+      success.value = ''
+      emit('close')
+    }, 2000)
+  }
+})
 
 async function onChangePassword() {
   error.value = ''
   success.value = ''
+  loading.value = true
   if (!oldPassword.value || !newPassword.value) {
     error.value = 'Заполните оба поля'
+    loading.value = false
     return
   }
   await emit('change-password', {
     oldPassword: oldPassword.value,
     newPassword: newPassword.value,
-    setError: (msg) => error.value = msg,
-    setSuccess: (msg) => success.value = msg
+    setError: (msg) => {
+      if (msg === 'Неверный токен' || msg === 'Нет токена') {
+        localStorage.removeItem('token')
+        window.location.reload()
+      } else {
+        error.value = msg
+      }
+      loading.value = false
+    },
+    setSuccess: (msg) => {
+      success.value = msg
+      loading.value = false
+    }
   })
 }
 </script>

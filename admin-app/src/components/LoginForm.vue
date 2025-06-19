@@ -1,16 +1,19 @@
 <template>
-  <form class="login-form" @submit.prevent="onLogin">
-    <h2>Вход в систему</h2>
-    <div class="form-group">
-      <label for="username">Логин:</label>
-      <input v-model="username" type="text" id="username" placeholder="Введите логин" />
+  <form class="card p-4 shadow-sm mx-auto" style="max-width:400px;" @submit.prevent="onLogin">
+    <h2 class="h4 text-center mb-4">Вход в систему</h2>
+    <div class="mb-3">
+      <label for="username" class="form-label">Логин:</label>
+      <input v-model="username" type="text" id="username" class="form-control" placeholder="Введите логин" autocomplete="username" />
     </div>
-    <div class="form-group">
-      <label for="password">Пароль:</label>
-      <input v-model="password" type="password" id="password" placeholder="Введите пароль" />
+    <div class="mb-3">
+      <label for="password" class="form-label">Пароль:</label>
+      <input v-model="password" type="password" id="password" class="form-control" placeholder="Введите пароль" autocomplete="current-password" />
     </div>
-    <button class="btn" :disabled="loading">Войти</button>
-    <div v-if="error" class="error">{{ error }}</div>
+    <button class="btn btn-primary w-100 d-flex align-items-center justify-content-center" :disabled="loading">
+      <span v-if="loading" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+      Войти
+    </button>
+    <div v-if="error" class="alert alert-danger mt-3 text-center">{{ error }}</div>
   </form>
 </template>
 

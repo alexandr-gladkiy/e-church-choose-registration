@@ -4,26 +4,28 @@ FROM node:18-alpine
 # Устанавливаем рабочую директорию
 WORKDIR /app
 
-# Копируем package.json
-COPY admin-service/package.json ./
+# Копируем package.json и package-lock.json
+COPY package.json ./
+COPY package-lock.json ./
 
 # Устанавливаем зависимости
 RUN npm install
 
 # Копируем исходный код
-COPY admin-service/. ./
-
-# Копируем общий модуль работы с БД
-COPY db-management ./db-management
+COPY . .
 
 # Создаем папку для данных
 RUN mkdir -p /app/data
 
 # Открываем порт
-EXPOSE 3005
+EXPOSE 5173
 
 # Устанавливаем curl для отладки сетевого взаимодействия между контейнерами
 RUN apk add --no-cache curl
 
 # Запускаем приложение
-CMD ["npm", "start"] 
+ARG VITE_API_URL
+ENV VITE_API_URL=http://localhost:3000/api
+RUN VITE_API_URL=http://localhost:3000/api npm run build
+
+CMD ["npm", "run", "preview", "--", "--host", "0.0.0.0", "--port", "5173"] 
