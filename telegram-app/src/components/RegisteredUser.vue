@@ -12,8 +12,12 @@
       <h3 class="user-info-title">Ваши данные регистрации</h3>
       <div class="user-info-grid">
         <div class="info-row">
-          <div class="info-label">Полное имя:</div>
+          <div class="info-label">Ф. И. О.:</div>
           <div class="info-value">{{ user.fullName }}</div>
+        </div>
+        <div class="info-row">
+          <div class="info-label">Номер телефона для связи:</div>
+          <div class="info-value">{{ user.phoneNumber }}</div>
         </div>
         <div class="info-row">
           <div class="info-label">Город:</div>
