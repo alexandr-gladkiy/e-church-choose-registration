@@ -13,6 +13,9 @@
             <strong>Имя:</strong> {{ registrationData.fullName }}
           </div>
           <div class="summary-item">
+            <strong>Телефон для связи:</strong> {{ registrationData.phoneNumber }}
+          </div>
+          <div class="summary-item">
             <strong>Город:</strong> {{ registrationData.city }}
           </div>
           <div class="summary-item">

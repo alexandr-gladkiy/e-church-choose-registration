@@ -23,7 +23,7 @@
       
       <form @submit.prevent="showConfirmation" class="registration-form">
         <div class="form-group">
-          <label for="fullName">Полное имя *</label>
+          <label for="fullName">Ваши Ф.И.О. *</label>
           <input
             type="text" 
             id="fullName"
@@ -34,43 +34,55 @@
           <div v-if="errors.fullName" class="error-message">{{ errors.fullName }}</div>
         </div>
 
-        <div class="form-group">
-          <label for="city">Город *</label>
-          <div class="city-input-container">
-            <input
-              type="text" 
-              id="city"
-              v-model="form.city"
-              :class="{ 'error': errors.city }"
-              placeholder="Начните вводить название города"
-              @input="filterCities"
-              @focus="showCityDropdown = true"
-              required
-            >
-            <div v-if="showCityDropdown && filteredCities.length > 0" class="city-dropdown">
-              <div 
-                v-for="city in filteredCities"
-                :key="city"
-                class="city-option"
-                @click="selectCity(city)"
-              >
-                {{ city }}
-              </div>
-            </div>
-          </div>
-          <div v-if="errors.city" class="error-message">{{ errors.city }}</div>
-        </div>
+<div class="form-group">
+  <label for="city">Город *</label>
+  <div class="city-input-container">
+    <input
+      type="text" 
+      id="city"
+      v-model="form.city"
+      :class="{ 'error': errors.city }"
+      placeholder="Начните вводить название города"
+      @input="filterCities"
+      @focus="showCityDropdown = true"
+      required
+    >
+    <div v-if="showCityDropdown && filteredCities.length > 0" class="city-dropdown">
+      <div 
+        v-for="city in filteredCities"
+        :key="city"
+        class="city-option"
+        @click="selectCity(city)"
+      >
+        {{ city }}
+      </div>
+    </div>
+  </div>
+  <div v-if="errors.city" class="error-message">{{ errors.city }}</div>
+</div>
+
+<div class="form-group">
+  <label for="churchName">Название Церкви *</label>
+  <input
+    type="text" 
+    id="churchName"
+    v-model="form.churchName"
+    :class="{ 'error': errors.churchName }"
+    required
+  >
+  <div v-if="errors.churchName" class="error-message">{{ errors.churchName }}</div>
+</div>
 
         <div class="form-group">
-          <label for="churchName">Название Церкви *</label>
+          <label for="fullName">Номер телефона для связи</label>
           <input
             type="text" 
-            id="churchName"
-            v-model="form.churchName"
-            :class="{ 'error': errors.churchName }"
+            id="phoneNumber"
+            v-model="form.phoneNumber"
+            :class="{ 'error': errors.phoneNumber }"
             required
           >
-          <div v-if="errors.churchName" class="error-message">{{ errors.churchName }}</div>
+          <div v-if="errors.fullName" class="error-message">{{ errors.fullName }}</div>
         </div>
 
         <div class="form-group">
@@ -95,6 +107,21 @@
           </label>
         </div>
         
+        <div class="form-group checkbox-group">
+          <label class="checkbox-label">
+            <input 
+              type="checkbox"
+              id="terms" 
+              v-model="form.terms"
+              :class="{ 'error': errors.terms }"
+              required
+            >
+            <span class="checkmark"></span>
+            Я даю согласие на обработку  <a href="#" class="terms-link">персональных данных</a> *
+          </label>
+          <div v-if="errors.terms" class="error-message">{{ errors.terms }}</div>
+        </div>
+
         <div class="form-group checkbox-group">
           <label class="checkbox-label">
             <input 
