@@ -50,6 +50,25 @@
 <script>
 import { ref, onMounted, onUnmounted } from 'vue'
 
+function parseImageName(filename) {
+  // Приводим расширение к нижнему регистру
+  const lower = filename.replace(/\.[^/.]+$/, ext => ext.toLowerCase())
+  // Удаляем расширение
+  const name = lower.replace(/\.[^/.]+$/, '')
+  // Новая маска: %Title%_%Description%
+  const match = name.match(/^%(.+)%_(%?.+%?)$/)
+  if (match) {
+    return {
+      title: match[1],
+      description: match[2].replace(/^%|%$/g, '')
+    }
+  }
+  return {
+    title: '',
+    description: ''
+  }
+}
+
 export default {
   name: 'ImageCarousel',
   setup() {
@@ -58,41 +77,15 @@ export default {
     const carouselContainer = ref(null)
     const touchStartX = ref(0)
     const touchEndX = ref(0)
-    
-    const images = [
-      {
-        src: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80',
-        alt: 'Поклонение и молитва',
-        title: 'Поклонение и молитва',
-        description: 'Присоединяйтесь к нам в молитве и поклонении'
-      },
-      {
-        src: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80',
-        alt: 'Библейское изучение',
-        title: 'Изучение Слова Божьего',
-        description: 'Углубляйтесь в Писание вместе с нами'
-      },
-      {
-        src: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80',
-        alt: 'Общение и общение',
-        title: 'Общение и общение',
-        description: 'Стройте отношения в христианском сообществе'
-      },
-      {
-        src: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80',
-        alt: 'Служение и миссия',
-        title: 'Служение и миссия',
-        description: 'Несите Евангелие в мир'
-      }
-    ]
+    const images = ref([])
     
     const nextSlide = () => {
-      currentIndex.value = (currentIndex.value + 1) % images.length
+      currentIndex.value = (currentIndex.value + 1) % images.value.length
       resetAutoplay()
     }
     
     const prevSlide = () => {
-      currentIndex.value = currentIndex.value === 0 ? images.length - 1 : currentIndex.value - 1
+      currentIndex.value = currentIndex.value === 0 ? images.value.length - 1 : currentIndex.value - 1
       resetAutoplay()
     }
     
@@ -142,6 +135,18 @@ export default {
     }
     
     onMounted(() => {
+      // Vite: динамический импорт изображений из assets
+      const imageModules = import.meta.glob('../assets/*.{png,jpg,jpeg,svg}', { eager: true })
+      images.value = Object.entries(imageModules).map(([path, mod]) => {
+        const filename = path.split('/').pop()
+        const { title, description } = parseImageName(filename)
+        return {
+          src: mod.default,
+          alt: title || '',
+          title,
+          description
+        }
+      })
       startAutoplay()
     })
     
