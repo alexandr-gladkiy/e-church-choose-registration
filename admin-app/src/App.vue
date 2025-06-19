@@ -106,8 +106,10 @@ onMounted(async () => {
 });
 
 async function handleLogin({ username, password, setError }) {
+  console.log('Попытка входа:', { username, password })
   try {
     const res = await login(username, password)
+    console.log('Ответ от сервера:', res)
     if (res.success && res.token) {
       localStorage.setItem('token', res.token)
       isAuth.value = true
@@ -117,6 +119,7 @@ async function handleLogin({ username, password, setError }) {
       setError(res.error || 'Ошибка авторизации')
     }
   } catch (e) {
+    console.error('Ошибка при входе:', e)
     setError(e.error || 'Ошибка авторизации')
   }
 }

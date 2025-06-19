@@ -4,8 +4,17 @@ const router = express.Router();
 
 // Получить всех участников
 router.get('/', async (req, res) => {
-  const result = await pool.query('SELECT * FROM users ORDER BY registration_date DESC');
-  res.json(result.rows);
+  const { telegramId } = req.query;
+  
+  if (telegramId) {
+    // Поиск пользователя по telegramId
+    const result = await pool.query('SELECT * FROM users WHERE telegram_id = $1 ORDER BY registration_date DESC', [telegramId]);
+    res.json(result.rows);
+  } else {
+    // Получить всех пользователей
+    const result = await pool.query('SELECT * FROM users ORDER BY registration_date DESC');
+    res.json(result.rows);
+  }
 });
 
 // Получить участника по id
@@ -18,20 +27,28 @@ router.get('/:id', async (req, res) => {
 
 // Добавить участника
 router.post('/', async (req, res) => {
+  console.log('Получен POST запрос на /api/users:', req.body);
   const { full_name, email, phone, city, church_name, need_accommodation, comments, telegram_id, telegram_username } = req.body;
+  
   if (!full_name || !city || !church_name || !telegram_id || !telegram_username) {
+    console.log('Ошибка валидации:', { full_name, city, church_name, telegram_id, telegram_username });
     return res.status(400).json({ error: 'Обязательные поля: ФИО, город, церковь, telegramId, telegramUsername' });
   }
+  
   try {
     const result = await pool.query(
       `INSERT INTO users (full_name, email, phone, city, church_name, need_accommodation, comments, telegram_id, telegram_username)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
       [full_name, email, phone, city, church_name, need_accommodation ?? false, comments, telegram_id, telegram_username]
     );
+    console.log('Пользователь успешно добавлен:', result.rows[0]);
     res.json({ success: true, user: result.rows[0] });
   } catch (e) {
-    if (e.code === '23505') return res.status(400).json({ error: 'Пользователь с таким telegramId уже существует' });
-    res.status(500).json({ error: 'Ошибка добавления' });
+    console.error('Ошибка при добавлении пользователя:', e);
+    if (e.code === '23505') {
+      return res.status(400).json({ error: 'Пользователь с таким telegramId уже существует' });
+    }
+    res.status(500).json({ error: 'Ошибка добавления: ' + e.message });
   }
 });
 
