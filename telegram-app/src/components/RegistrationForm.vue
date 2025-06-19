@@ -77,9 +77,9 @@
           <label for="fullName">Номер телефона для связи</label>
           <input
             type="text" 
-            id="phoneNumber"
-            v-model="form.phoneNumber"
-            :class="{ 'error': errors.phoneNumber }"
+            id="phone"
+            v-model="form.phone"
+            :class="{ 'error': errors.phone }"
             required
           >
           <div v-if="errors.fullName" class="error-message">{{ errors.fullName }}</div>
@@ -160,7 +160,7 @@
 
 <script>
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
-import axios from 'axios'
+import api from '../api'
 import ConfirmDialog from './ConfirmDialog.vue'
 import RegisteredUser from './RegisteredUser.vue'
 
@@ -190,6 +190,7 @@ export default {
       fullName: '',
       city: '',
       churchName: '',
+      phone: '',
       comments: '',
       needAccommodation: false,
       terms: false
@@ -309,15 +310,21 @@ export default {
     const submitForm = async () => {
       isLoading.value = true
       try {
+        // Проверяем наличие данных Telegram пользователя
+        if (!props.telegramUser) {
+          throw new Error('Данные Telegram пользователя не найдены')
+        }
+        
         // Отправка данных на backend-api
-        const response = await axios.post('/api/users', {
-          fullName: form.fullName,
+        const response = await api.post('/api/users', {
+          full_name: form.fullName,
           city: form.city,
-          churchName: form.churchName,
+          church_name: form.churchName,
           comments: form.comments,
-          needAccommodation: form.needAccommodation,
-          telegramUsername: props.telegramUser?.username,
-          telegramId: props.telegramUser?.id
+          need_accommodation: form.needAccommodation,
+          phone: form.phone,
+          telegram_username: props.telegramUser.username,
+          telegram_id: props.telegramUser.id
         })
         // Успешная регистрация
         const registeredUser = response.data
@@ -353,7 +360,7 @@ export default {
       }
       isLoading.value = true
       try {
-        await axios.post(`/api/users/${userId}/cancel`)
+        await api.post(`/api/users/${userId}/cancel`)
         existingUser.value = null
         existingUserMessage.value = ''
       } catch (error) {
@@ -366,6 +373,7 @@ export default {
     onMounted(async () => {
       document.addEventListener('click', handleClickOutside)
       loadCities()
+      
       // Автозаполнение имени из Telegram
       if (props.telegramUser) {
         form.fullName = props.telegramUser.first_name
@@ -374,17 +382,21 @@ export default {
         }
         // Попытка автозаполнить форму по telegramId
         try {
-          const resp = await axios.get(`/api/users?telegramId=${props.telegramUser.id}`)
+          const resp = await api.get(`/api/users?telegramId=${props.telegramUser.id}`)
           if (resp.data && Array.isArray(resp.data) && resp.data.length > 0) {
             const u = resp.data[0]
-            form.fullName = u.full_name || form.fullName
-            form.city = u.city || ''
-            form.churchName = u.church_name || ''
-            form.comments = u.comments || ''
-            form.needAccommodation = u.need_accommodation || false
-            existingUser.value = u
+            // Проверяем, что пользователь не отменен
+            if (!u.cancelled_at) {
+              form.fullName = u.full_name || form.fullName
+              form.city = u.city || ''
+              form.churchName = u.church_name || ''
+              form.comments = u.comments || ''
+              form.needAccommodation = u.need_accommodation || false
+              existingUser.value = u
+            }
           }
         } catch (e) {
+          console.log('Пользователь не найден или ошибка запроса:', e.message)
           // Нет отменённых регистраций — ничего не делаем
         }
       }

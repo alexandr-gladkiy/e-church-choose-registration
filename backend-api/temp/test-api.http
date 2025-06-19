@@ -48,7 +48,7 @@ Content-Type: application/json
 
 {
   "username": "admin",
-  "password": "admin1234"
+  "password": "admin123"
 }
 
 ### Получить текущего админа (требуется Bearer TOKEN)

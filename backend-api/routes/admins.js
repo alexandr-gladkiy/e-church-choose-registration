@@ -19,14 +19,35 @@ function auth(req, res, next) {
 
 // Вход администратора
 router.post('/login', async (req, res) => {
+  console.log('Попытка входа администратора:', req.body);
   const { username, password } = req.body;
-  const result = await pool.query('SELECT * FROM admins WHERE username = $1', [username]);
-  if (!result.rows.length) return res.status(401).json({ error: 'Неверный логин или пароль' });
-  const admin = result.rows[0];
-  const valid = await bcrypt.compare(password, admin.password_hash);
-  if (!valid) return res.status(401).json({ error: 'Неверный логин или пароль' });
-  const token = jwt.sign({ id: admin.id, username: admin.username }, process.env.JWT_SECRET, { expiresIn: '12h' });
-  res.json({ success: true, token });
+  
+  if (!username || !password) {
+    console.log('Отсутствуют username или password');
+    return res.status(400).json({ error: 'Необходимы логин и пароль' });
+  }
+  
+  try {
+    const result = await pool.query('SELECT * FROM admins WHERE username = $1', [username]);
+    if (!result.rows.length) {
+      console.log('Пользователь не найден:', username);
+      return res.status(401).json({ error: 'Неверный логин или пароль' });
+    }
+    
+    const admin = result.rows[0];
+    const valid = await bcrypt.compare(password, admin.password_hash);
+    if (!valid) {
+      console.log('Неверный пароль для пользователя:', username);
+      return res.status(401).json({ error: 'Неверный логин или пароль' });
+    }
+    
+    const token = jwt.sign({ id: admin.id, username: admin.username }, process.env.JWT_SECRET, { expiresIn: '12h' });
+    console.log('Успешный вход для пользователя:', username);
+    res.json({ success: true, token });
+  } catch (error) {
+    console.error('Ошибка при входе:', error);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
 });
 
 // Получить текущего админа

@@ -10,6 +10,7 @@ services:
       POSTGRES_PASSWORD: postgres
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./backend-api/db.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - eventnet
 
@@ -52,7 +53,7 @@ services:
       context: ./telegram-app
     restart: always
     environment:
-      VITE_API_URL: http://localhost:3000/api
+      VITE_API_URL: http://localhost:3000
     ports:
       - '5174:5174'
     depends_on:
