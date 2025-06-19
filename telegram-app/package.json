@@ -1,0 +1,35 @@
+{
+  "name": "event-registration-telegram",
+  "version": "1.0.0",
+  "description": "Telegram Web App для регистрации на мероприятие",
+  "main": "server.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "serve": "vite preview",
+    "server": "node server.js",
+    "start": "npm run build && node server.js",
+    "dev:full": "concurrently \"npm run dev\" \"npm run server\"",
+    "bot": "node bot-example.js"
+  },
+  "dependencies": {
+    "axios": "^1.5.0",
+    "telegraf": "^4.15.3",
+    "vue": "^3.3.4"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^4.3.4",
+    "concurrently": "^8.2.0",
+    "vite": "^4.4.9"
+  },
+  "keywords": [
+    "vue",
+    "telegram",
+    "webapp",
+    "registration",
+    "form"
+  ],
+  "author": "",
+  "license": "MIT"
+}
