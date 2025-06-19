@@ -1,0 +1,68 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_DB: event_registration
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - eventnet
+
+  backend-api:
+    build:
+      context: ./backend-api
+    restart: always
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGDATABASE: event_registration
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      JWT_SECRET: supersecret
+      PORT: 3000
+    ports:
+      - '3000:3000'
+    depends_on:
+      - postgres
+    networks:
+      - eventnet
+
+  admin-app:
+    build:
+      context: ./admin-app
+      args:
+        VITE_API_URL: http://localhost:3000/api
+    restart: always
+    environment:
+      VITE_API_URL: http://localhost:3000/api
+    ports:
+      - '5173:5173'
+    depends_on:
+      - backend-api
+    networks:
+      - eventnet
+
+  telegram-app:
+    build:
+      context: ./telegram-app
+    restart: always
+    environment:
+      VITE_API_URL: http://localhost:3000/api
+    ports:
+      - '5174:5174'
+    depends_on:
+      - backend-api
+    networks:
+      - eventnet
+
+volumes:
+  pgdata:
+
+networks:
+  eventnet:
+    driver: bridge 

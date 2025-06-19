@@ -50,7 +50,30 @@ body {
 }
 @media (max-width: 768px) {
   .container {
-    padding: 10px;
+    padding: 0 4px !important;
+  }
+  .card, .shadow-sm {
+    padding: 1rem !important;
+  }
+  .nav-tabs .nav-link {
+    font-size: 15px;
+    padding: 8px 10px;
+  }
+  .btn, .btn-sm, .btn-lg {
+    font-size: 15px;
+    padding: 10px 12px;
+  }
+  .table th, .table td {
+    padding: 8px 6px;
+    font-size: 14px;
+  }
+  .stats-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+  .stat-card, .settings-card {
+    padding: 14px !important;
+    font-size: 15px;
   }
   .header h1 {
     font-size: 1.6em;
