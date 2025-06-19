@@ -61,6 +61,18 @@ services:
     networks:
       - eventnet
 
+  telegram-bot:
+    build:
+      context: ./telegram-bot
+    restart: always
+    environment:
+      BOT_TOKEN: ${BOT_TOKEN}
+      WEBAPP_URL: http://localhost:5174
+    depends_on:
+      - telegram-app
+    networks:
+      - eventnet
+
 volumes:
   pgdata:
 
