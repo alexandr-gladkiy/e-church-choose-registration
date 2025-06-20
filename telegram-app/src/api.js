@@ -1,8 +1,8 @@
 import axios from 'axios'
 
-// Создаем экземпляр axios с базовыми настройками
+// Используем переменную окружения VITE_API_URL, чтобы поддерживать production и docker
 const api = axios.create({
-  baseURL: 'http://localhost:3000',  // Прямое обращение к backend-api
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000',
   headers: {
     'Content-Type': 'application/json'
   }
