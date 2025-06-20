@@ -10,8 +10,8 @@ COPY package.json ./
 # Копируем package-lock.json если он существует
 COPY package-lock.json* ./
 
-# Устанавливаем зависимости
-RUN npm ci --only=production || npm install
+# Устанавливаем зависимости (включая devDependencies для сборки)
+RUN npm ci || npm install
 
 # Копируем исходный код
 COPY . .
