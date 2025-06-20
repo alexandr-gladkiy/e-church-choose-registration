@@ -189,9 +189,17 @@ else
     log "UFW установлен и настроен"
 fi
 
+# Остановка и удаление всех контейнеров и сетей Docker
+log "Останавливаю и удаляю все контейнеры и сети Docker..."
+docker-compose down -v --remove-orphans || true
+
+docker container prune -f || true
+docker network prune -f || true
+
 # Сборка и запуск Docker контейнеров
 log "Собираем и запускаем Docker контейнеры..."
-docker-compose down --remove-orphans || true
+# Данные Postgres сохраняются между пересборками благодаря volume pgdata
+# (см. docker-compose.yaml: pgdata:/var/lib/postgresql/data)
 docker-compose build --no-cache
 docker-compose up -d
 
