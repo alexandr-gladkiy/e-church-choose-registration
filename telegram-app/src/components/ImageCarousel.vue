@@ -49,25 +49,7 @@
 
 <script>
 import { ref, onMounted, onUnmounted } from 'vue'
-
-function parseImageName(filename) {
-  // Приводим расширение к нижнему регистру
-  const lower = filename.replace(/\.[^/.]+$/, ext => ext.toLowerCase())
-  // Удаляем расширение
-  const name = lower.replace(/\.[^/.]+$/, '')
-  // Новая маска: %Title%_%Description%
-  const match = name.match(/^%(.+)%_(%?.+%?)$/)
-  if (match) {
-    return {
-      title: match[1],
-      description: match[2].replace(/^%|%$/g, '')
-    }
-  }
-  return {
-    title: '',
-    description: ''
-  }
-}
+import sliderImageConfig from '../assets/slider-image-config.json'
 
 export default {
   name: 'ImageCarousel',
@@ -135,16 +117,15 @@ export default {
     }
     
     onMounted(() => {
-      // Vite: динамический импорт изображений из assets
-      const imageModules = import.meta.glob('../assets/*.{png,jpg,jpeg,svg}', { eager: true })
-      images.value = Object.entries(imageModules).map(([path, mod]) => {
-        const filename = path.split('/').pop()
-        const { title, description } = parseImageName(filename)
+      // Формируем массив изображений на основе slider-image-config.json
+      images.value = sliderImageConfig.map(item => {
+        // Vite требует import для ассетов, иначе не попадут в билд
+        const src = new URL(`../assets/slider-images/${item.filename}`, import.meta.url).href
         return {
-          src: mod.default,
-          alt: title || '',
-          title,
-          description
+          src,
+          alt: item.title || '',
+          title: item.title,
+          description: item.description
         }
       })
       startAutoplay()

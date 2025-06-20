@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Скрипт для автоматического развёртывания event-registration на сервер
-# Использование: ./deploy.sh [GITHUB_REPO_URL] [BOT_TOKEN]
+# Использование: ./deploy.sh [GITHUB_REPO_URL] [BOT_TOKEN] [DOMAIN] [ADMIN_DOMAIN] [API_DOMAIN]
 
 set -e  # Остановка при ошибке
 
@@ -26,21 +26,29 @@ error() {
     exit 1
 }
 
-# Проверка аргументов
-if [ $# -lt 2 ]; then
-    echo "Использование: $0 <GITHUB_REPO_URL> <BOT_TOKEN>"
-    echo "Пример: $0 https://github.com/username/event-registration.git 1234567890:ABCdefGHIjklMNOpqrsTUVwxyz"
-    exit 1
+# Проверка аргументов и интерактивный ввод, если не переданы
+if [ $# -lt 5 ]; then
+    echo "\n--- Интерактивная настройка деплоя ---"
+    read -p "Введите ссылку на git-репозиторий: " GITHUB_REPO_URL
+    read -p "Введите токен Telegram-бота: " BOT_TOKEN
+    read -p "Введите основной домен (например, choose.su): " DOMAIN
+    read -p "Введите поддомен для админки (например, admin.choose.su): " ADMIN_DOMAIN
+    read -p "Введите поддомен для API (например, api.choose.su): " API_DOMAIN
+else
+    GITHUB_REPO_URL=$1
+    BOT_TOKEN=$2
+    DOMAIN=$3
+    ADMIN_DOMAIN=$4
+    API_DOMAIN=$5
 fi
 
-GITHUB_REPO_URL=$1
-BOT_TOKEN=$2
 PROJECT_NAME="event-registration"
-DOMAIN=${3:-"localhost"}  # Опциональный домен, по умолчанию localhost
 
 log "Начинаем развёртывание проекта event-registration"
 log "Репозиторий: $GITHUB_REPO_URL"
 log "Домен: $DOMAIN"
+log "Admin поддомен: $ADMIN_DOMAIN"
+log "API поддомен: $API_DOMAIN"
 
 # Обновление системы
 log "Обновляем систему..."
@@ -97,17 +105,12 @@ EOF
 log "Обновляем конфигурацию для продакшена..."
 sed -i 's/version: .*/# version removed for docker-compose v2/' docker-compose.yaml
 
-# Создание nginx конфигурации для проксирования
-log "Создаём nginx конфигурацию..."
-sudo mkdir -p /etc/nginx/sites-available
-sudo mkdir -p /etc/nginx/sites-enabled
-
+# Создание nginx конфигурации для проксирования с поддоменами
+log "Создаём nginx конфигурацию с поддоменами..."
 cat > nginx.conf << EOF
 server {
     listen 80;
     server_name $DOMAIN;
-
-    # Telegram WebApp
     location / {
         proxy_pass http://localhost:5174;
         proxy_http_version 1.1;
@@ -119,9 +122,12 @@ server {
         proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_cache_bypass \$http_upgrade;
     }
+}
 
-    # Admin Panel
-    location /admin {
+server {
+    listen 80;
+    server_name $ADMIN_DOMAIN;
+    location / {
         proxy_pass http://localhost:5173;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
@@ -132,9 +138,12 @@ server {
         proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_cache_bypass \$http_upgrade;
     }
+}
 
-    # API
-    location /api {
+server {
+    listen 80;
+    server_name $API_DOMAIN;
+    location / {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
         proxy_set_header Host \$host;
@@ -154,6 +163,13 @@ sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t
 sudo systemctl restart nginx
 sudo systemctl enable nginx
+
+# Настройка HTTPS через certbot
+if [ "$DOMAIN" != "localhost" ]; then
+  log "Устанавливаем certbot и настраиваем HTTPS для $DOMAIN, $ADMIN_DOMAIN, $API_DOMAIN..."
+  sudo apt-get install -y certbot python3-certbot-nginx
+  sudo certbot --nginx --non-interactive --agree-tos --redirect -m admin@$DOMAIN -d $DOMAIN -d $ADMIN_DOMAIN -d $API_DOMAIN || warn "Certbot завершился с ошибкой, проверьте домен и DNS-записи."
+fi
 
 # Настройка firewall
 log "Настраиваем firewall..."
@@ -284,7 +300,7 @@ fi
 # Вывод итоговой информации
 log "🎉 Развёртывание завершено!"
 echo ""
-echo "📋 Информация о развёртывании:"
+echo "🔧 Информация о развёртывании:"
 echo "   • Проект: /opt/$PROJECT_NAME"
 echo "   • Telegram WebApp: http://$DOMAIN"
 echo "   • Admin Panel: http://$DOMAIN/admin"
