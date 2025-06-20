@@ -25,9 +25,11 @@ EXPOSE 5173
 # Устанавливаем curl для отладки сетевого взаимодействия между контейнерами
 RUN apk add --no-cache curl
 
-# Запускаем приложение
-ARG VITE_API_URL
-ENV VITE_API_URL=http://localhost:3000/api
-RUN VITE_API_URL=http://localhost:3000/api npm run build
+# Создаем скрипт запуска
+RUN echo '#!/bin/sh' > /app/start.sh && \
+    echo 'VITE_API_URL=http://localhost:3000/api npm run build' >> /app/start.sh && \
+    echo 'npm run preview -- --host 0.0.0.0 --port 5173' >> /app/start.sh && \
+    chmod +x /app/start.sh
 
-CMD ["npm", "run", "preview", "--", "--host", "0.0.0.0", "--port", "5173"] 
+# Запускаем приложение
+CMD ["/app/start.sh"] 

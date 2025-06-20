@@ -157,10 +157,21 @@ sudo systemctl enable nginx
 
 # Настройка firewall
 log "Настраиваем firewall..."
-sudo ufw allow 22/tcp
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-sudo ufw --force enable
+if command -v ufw &> /dev/null; then
+    sudo ufw allow 22/tcp
+    sudo ufw allow 80/tcp
+    sudo ufw allow 443/tcp
+    sudo ufw --force enable
+    log "UFW настроен"
+else
+    log "UFW не найден, устанавливаем..."
+    sudo apt-get install ufw -y
+    sudo ufw allow 22/tcp
+    sudo ufw allow 80/tcp
+    sudo ufw allow 443/tcp
+    sudo ufw --force enable
+    log "UFW установлен и настроен"
+fi
 
 # Сборка и запуск Docker контейнеров
 log "Собираем и запускаем Docker контейнеры..."

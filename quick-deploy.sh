@@ -73,7 +73,10 @@ EOF
 # Сборка и запуск
 log "Собираем и запускаем контейнеры..."
 docker-compose down --remove-orphans || true
-docker-compose build --no-cache
+docker-compose build --no-cache || {
+    log "Ошибка сборки, пробуем без --no-cache..."
+    docker-compose build
+}
 docker-compose up -d
 
 # Ожидание запуска
