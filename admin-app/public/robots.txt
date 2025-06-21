@@ -1,0 +1,25 @@
+User-agent: *
+Disallow: /
+
+# Запрет индексации админ-панели для всех поисковых роботов
+User-agent: Googlebot
+Disallow: /
+
+User-agent: Bingbot
+Disallow: /
+
+User-agent: Yandex
+Disallow: /
+
+User-agent: Baiduspider
+Disallow: /
+
+User-agent: DuckDuckBot
+Disallow: /
+
+# Дополнительная защита для админ-панели
+User-agent: *
+Disallow: /api/
+Disallow: /admin/
+Disallow: /login/
+Disallow: /settings/ 

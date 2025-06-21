@@ -3,8 +3,17 @@
     <HeaderBlock />
     <div class="block-wrapper"><ImageCarousel /></div>
     <div class="block-wrapper"><InfoBlock /></div>
+    
+    <!-- Заглушка для браузера или основная форма -->
     <div class="block-wrapper">
+      <BrowserBlock 
+        v-if="showBrowserBlock"
+        :show-admin-override="isAdmin"
+        @enable-registration="enableRegistration"
+        @refresh-settings="refreshSettings"
+      />
       <RegistrationForm 
+        v-else
         :telegram-user="telegramUser"
       />
     </div>
@@ -12,11 +21,13 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import HeaderBlock from './components/HeaderBlock.vue'
 import ImageCarousel from './components/ImageCarousel.vue'
 import InfoBlock from './components/InfoBlock.vue'
 import RegistrationForm from './components/RegistrationForm.vue'
+import BrowserBlock from './components/BrowserBlock.vue'
+import api from './api'
 
 export default {
   name: 'App',
@@ -24,12 +35,94 @@ export default {
     HeaderBlock,
     ImageCarousel,
     InfoBlock,
-    RegistrationForm
+    RegistrationForm,
+    BrowserBlock
   },
   setup() {
     const telegramUser = ref(null)
+    const isWebApp = ref(false)
+    const browserOverride = ref(false)
+    const isAdmin = ref(false)
+    const browserAccessEnabled = ref(false)
 
-    onMounted(() => {
+    // Определяем, нужно ли показывать заглушку
+    const showBrowserBlock = computed(() => {
+      // Если это не WebApp и нет переопределения и браузерный доступ запрещен - показываем заглушку
+      return !isWebApp.value && !browserOverride.value && !browserAccessEnabled.value
+    })
+
+    // Определение WebApp
+    const detectWebApp = () => {
+      isWebApp.value = !!(window.Telegram && window.Telegram.WebApp)
+    }
+
+    // Загрузка настроек регистрации
+    const loadRegistrationSettings = async () => {
+      try {
+        const response = await api.get('/api/registration-settings')
+        browserAccessEnabled.value = response.data.browser_access_enabled || false
+        console.log('Настройки загружены:', response.data)
+      } catch (error) {
+        console.error('Ошибка загрузки настроек:', error)
+        // По умолчанию запрещаем доступ через браузер
+        browserAccessEnabled.value = false
+      }
+    }
+
+    // Принудительное обновление настроек
+    const refreshSettings = async () => {
+      await loadRegistrationSettings()
+    }
+
+    // Периодическое обновление настроек (каждые 30 секунд)
+    let settingsInterval = null
+    const startSettingsPolling = () => {
+      settingsInterval = setInterval(async () => {
+        await loadRegistrationSettings()
+      }, 30000) // 30 секунд
+    }
+
+    const stopSettingsPolling = () => {
+      if (settingsInterval) {
+        clearInterval(settingsInterval)
+        settingsInterval = null
+      }
+    }
+
+    // Проверка на админа (по URL параметру или localStorage)
+    const checkAdminStatus = () => {
+      const urlParams = new URLSearchParams(window.location.search)
+      const adminKey = urlParams.get('admin') || localStorage.getItem('admin_override')
+      
+      if (adminKey === 'true' || adminKey === 'admin123') {
+        isAdmin.value = true
+        localStorage.setItem('admin_override', 'true')
+      }
+    }
+
+    // Включение регистрации (для админов)
+    const enableRegistration = () => {
+      browserOverride.value = true
+      localStorage.setItem('browser_override', 'true')
+    }
+
+    // Проверка сохраненного состояния
+    const checkSavedState = () => {
+      const savedOverride = localStorage.getItem('browser_override')
+      if (savedOverride === 'true') {
+        browserOverride.value = true
+      }
+    }
+
+    onMounted(async () => {
+      detectWebApp()
+      checkAdminStatus()
+      checkSavedState()
+      await loadRegistrationSettings()
+      
+      // Запускаем периодическое обновление настроек
+      startSettingsPolling()
+      
       // Инициализация Telegram Web App
       if (window.Telegram && window.Telegram.WebApp) {
         const tg = window.Telegram.WebApp
@@ -43,8 +136,16 @@ export default {
       }
     })
 
+    onUnmounted(() => {
+      stopSettingsPolling()
+    })
+
     return {
-      telegramUser
+      telegramUser,
+      showBrowserBlock,
+      isAdmin,
+      enableRegistration,
+      refreshSettings
     }
   }
 }

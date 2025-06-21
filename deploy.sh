@@ -94,11 +94,18 @@ else
     git clone $GITHUB_REPO_URL .
 fi
 
+# Проверка наличия docker-compose.yaml
+if [ ! -f "docker-compose.yaml" ]; then
+    error "Файл docker-compose.yaml не найден в репозитории!"
+fi
+
 # Создание .env файла
 log "Создаём .env файл..."
 cat > .env << EOF
 BOT_TOKEN=$BOT_TOKEN
-DOMAIN=$DOMAIN
+DOMAIN=https://$DOMAIN
+ADMIN_DOMAIN=https://$ADMIN_DOMAIN
+API_DOMAIN=https://$API_DOMAIN
 EOF
 
 # Обновление docker-compose.yaml для продакшена
@@ -139,8 +146,8 @@ server {
 server {
     listen 443 ssl;
     server_name $ADMIN_DOMAIN;
-    ssl_certificate /etc/letsencrypt/live/$ADMIN_DOMAIN/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/$ADMIN_DOMAIN/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
     include ssl-params.conf;
     location / {
         proxy_pass http://localhost:5173;
@@ -159,8 +166,8 @@ server {
 server {
     listen 443 ssl;
     server_name $API_DOMAIN;
-    ssl_certificate /etc/letsencrypt/live/$API_DOMAIN/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/$API_DOMAIN/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
     include ssl-params.conf;
     location / {
         proxy_pass http://localhost:3000;
@@ -327,21 +334,21 @@ sleep 10
 log "Проверяем доступность сервисов..."
 
 if curl -f http://localhost:5174 > /dev/null 2>&1; then
-    log "✅ Telegram WebApp доступен на http://$DOMAIN"
+    log "✅ Telegram WebApp доступен на https://$DOMAIN"
 else
     warn "⚠️ Telegram WebApp недоступен"
 fi
 
 if curl -f http://localhost:5173 > /dev/null 2>&1; then
-    log "✅ Admin Panel доступен на http://$DOMAIN/admin"
+    log "✅ Admin Panel доступен на https://$ADMIN_DOMAIN"
 else
     warn "⚠️ Admin Panel недоступен"
 fi
 
-if curl -f http://localhost:3000/api/health > /dev/null 2>&1; then
-    log "✅ API доступен"
+if curl -f http://localhost:3000 > /dev/null 2>&1; then
+    log "✅ API доступен на https://$API_DOMAIN"
 else
-    log "✅ API запущен (health endpoint может отсутствовать)"
+    warn "⚠️ API недоступен"
 fi
 
 # Вывод итоговой информации
@@ -349,9 +356,9 @@ log "🎉 Развёртывание завершено!"
 echo ""
 echo "🔧 Информация о развёртывании:"
 echo "   • Проект: /opt/$PROJECT_NAME"
-echo "   • Telegram WebApp: http://$DOMAIN"
-echo "   • Admin Panel: http://$DOMAIN/admin"
-echo "   • API: http://$DOMAIN/api"
+echo "   • Telegram WebApp: https://$DOMAIN"
+echo "   • Admin Panel: https://$ADMIN_DOMAIN"
+echo "   • API: https://$API_DOMAIN"
 echo ""
 echo "🔧 Управление:"
 echo "   • Статус: event-registration-manage status"
@@ -360,7 +367,7 @@ echo "   • Перезапуск: event-registration-manage restart"
 echo "   • Обновление: event-registration-manage update"
 echo ""
 echo "📝 Следующие шаги:"
-echo "   1. Настройте SSL сертификат (Let's Encrypt)"
+echo "   1. Проверьте SSL сертификат (Let's Encrypt)"
 echo "   2. Обновите BOT_TOKEN в .env если нужно"
 echo "   3. Протестируйте бота в Telegram"
 echo ""

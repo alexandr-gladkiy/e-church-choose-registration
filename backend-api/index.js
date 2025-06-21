@@ -15,8 +15,38 @@ app.use((req, res, next) => {
 });
 
 // CORS middleware
+const allowedOrigins = [
+  'http://localhost:5173', 
+  'http://localhost:5174',
+  'https://localhost:5173',
+  'https://localhost:5174'
+];
+
+// Добавляем поддомены из переменных окружения
+if (process.env.DOMAIN) {
+  const domain = process.env.DOMAIN.replace('https://', '').replace('http://', '');
+  const adminDomain = process.env.ADMIN_DOMAIN?.replace('https://', '').replace('http://', '') || `admin.${domain}`;
+  
+  allowedOrigins.push(
+    `https://${domain}`,
+    `https://${adminDomain}`,
+    `http://${domain}`,
+    `http://${adminDomain}`
+  );
+}
+
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:5174'],
+  origin: function (origin, callback) {
+    // Разрешаем запросы без origin (например, от мобильных приложений)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.log('CORS blocked origin:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 
