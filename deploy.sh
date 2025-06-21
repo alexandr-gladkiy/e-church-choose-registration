@@ -114,12 +114,12 @@ sed -i 's/version: .*/# version removed for docker-compose v2/' docker-compose.y
 
 # Создание nginx конфигурации для проксирования с поддоменами и HTTPS
 log "Создаём nginx конфигурацию с поддоменами и HTTPS..."
-cat > nginx.conf << EOF
+cat > nginx.conf << "EOF"
 # HTTP redirect to HTTPS
 server {
     listen 80;
     server_name $DOMAIN $ADMIN_DOMAIN $API_DOMAIN;
-    return 301 https://$host$request_uri;
+    return 301 https://\$host\$request_uri;
 }
 
 # Telegram WebApp HTTPS
@@ -132,13 +132,13 @@ server {
     location / {
         proxy_pass http://localhost:5174;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_cache_bypass \$http_upgrade;
     }
 }
 
@@ -152,13 +152,13 @@ server {
     location / {
         proxy_pass http://localhost:5173;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_cache_bypass \$http_upgrade;
     }
 }
 
@@ -172,10 +172,10 @@ server {
     location / {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
     }
 }
 EOF
@@ -204,6 +204,7 @@ EOF
 log "Устанавливаем и настраиваем nginx..."
 sudo apt-get install -y nginx
 sudo cp nginx.conf /etc/nginx/sites-available/$PROJECT_NAME
+sudo cp ssl-params.conf /etc/nginx/ssl-params.conf
 sudo ln -sf /etc/nginx/sites-available/$PROJECT_NAME /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t
