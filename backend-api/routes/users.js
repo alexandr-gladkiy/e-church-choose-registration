@@ -36,6 +36,43 @@ router.post('/', async (req, res) => {
   }
   
   try {
+    // Проверяем настройки регистрации
+    const settingsResult = await pool.query('SELECT * FROM registration_settings LIMIT 1');
+    const settings = settingsResult.rows[0];
+    
+    if (!settings.is_open) {
+      return res.status(400).json({ error: 'Регистрация закрыта' });
+    }
+    
+    // Проверяем лимит участников
+    if (settings.max_participants) {
+      const participantsResult = await pool.query(
+        'SELECT COUNT(*) as count FROM users WHERE cancelled_at IS NULL'
+      );
+      const activeParticipants = parseInt(participantsResult.rows[0].count);
+      
+      if (activeParticipants >= settings.max_participants) {
+        return res.status(400).json({ 
+          error: 'Достигнут лимит участников',
+          max_participants: settings.max_participants,
+          active_participants: activeParticipants
+        });
+      }
+    }
+    
+    // Проверяем, не зарегистрирован ли уже пользователь
+    const existingUser = await pool.query(
+      'SELECT * FROM users WHERE telegram_id = $1 AND cancelled_at IS NULL',
+      [telegram_id]
+    );
+    
+    if (existingUser.rows.length > 0) {
+      return res.status(400).json({ 
+        error: 'Пользователь уже зарегистрирован',
+        existingUser: existingUser.rows[0]
+      });
+    }
+    
     const result = await pool.query(
       `INSERT INTO users (full_name, email, phone, city, church_name, need_accommodation, comments, telegram_id, telegram_username)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,

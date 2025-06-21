@@ -26,6 +26,9 @@ services:
       PGPASSWORD: postgres
       JWT_SECRET: supersecret
       PORT: 3000
+      DOMAIN: ${DOMAIN}
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN}
+      API_DOMAIN: ${API_DOMAIN}
     ports:
       - '3000:3000'
     depends_on:
@@ -37,10 +40,10 @@ services:
     build:
       context: ./admin-app
       args:
-        VITE_API_URL: http://localhost:3000/api
+        VITE_API_URL: ${API_DOMAIN:-http://localhost:3000/api}
     restart: always
     environment:
-      VITE_API_URL: http://localhost:3000/api
+      VITE_API_URL: ${API_DOMAIN:-http://localhost:3000/api}
     ports:
       - '5173:5173'
     depends_on:
@@ -53,7 +56,7 @@ services:
       context: ./telegram-app
     restart: always
     environment:
-      VITE_API_URL: http://localhost:3000
+      VITE_API_URL: ${API_DOMAIN:-http://localhost:3000/api}
     ports:
       - '5174:5174'
     depends_on:
@@ -67,7 +70,7 @@ services:
     restart: always
     environment:
       BOT_TOKEN: ${BOT_TOKEN}
-      WEBAPP_URL: http://localhost:5174
+      WEBAPP_URL: ${DOMAIN:-http://localhost:5174}
     depends_on:
       - telegram-app
     networks:

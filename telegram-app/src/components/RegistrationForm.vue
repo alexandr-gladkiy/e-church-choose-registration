@@ -1,5 +1,35 @@
 <template>
   <div class="form-container">
+    <!-- Информация о доступных местах -->
+    <div v-if="registrationInfo && registrationInfo.max_participants" class="registration-info">
+      <div class="info-card">
+        <div class="stats-compact">
+          <div class="stat-main">
+            <span class="stat-icon">🎯</span>
+            <span class="stat-label">Доступно мест:</span>
+            <span class="stat-value" :class="{ 
+              'warning': registrationInfo.available_spots <= 5 && registrationInfo.available_spots > 0, 
+              'danger': registrationInfo.available_spots === 0 
+            }">
+              {{ registrationInfo.available_spots }}
+            </span>
+          </div>
+          <div class="stat-secondary">
+            <span class="stat-small">из {{ registrationInfo.max_participants }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Сообщение о закрытой регистрации -->
+    <div v-if="registrationInfo && registrationInfo.is_full" class="registration-closed">
+      <div class="closed-message">
+        <h3>🚫 Регистрация закрыта</h3>
+        <p>Достигнут лимит участников ({{ registrationInfo.max_participants }}).</p>
+        <p>Если у вас есть вопросы, обратитесь к организаторам.</p>
+      </div>
+    </div>
+
     <!-- Сообщение о существующем пользователе -->
     <RegisteredUser
       v-if="existingUser"
@@ -7,7 +37,7 @@
       :is-loading="isLoading"
       @cancel-registration="handleCancelRegistration"
     />
-    <div v-else>
+    <div v-else-if="!registrationInfo?.is_full">
       <div v-if="existingUserMessage" class="existing-user-message">
         <div class="message-content">
           <h3>Пользователь уже зарегистрирован</h3>
@@ -34,55 +64,95 @@
           <div v-if="errors.fullName" class="error-message">{{ errors.fullName }}</div>
         </div>
 
-<div class="form-group">
-  <label for="city">Город *</label>
-  <div class="city-input-container">
-    <input
-      type="text" 
-      id="city"
-      v-model="form.city"
-      :class="{ 'error': errors.city }"
-      placeholder="Начните вводить название города"
-      @input="filterCities"
-      @focus="showCityDropdown = true"
-      required
-    >
-    <div v-if="showCityDropdown && filteredCities.length > 0" class="city-dropdown">
-      <div 
-        v-for="city in filteredCities"
-        :key="city"
-        class="city-option"
-        @click="selectCity(city)"
-      >
-        {{ city }}
-      </div>
-    </div>
-  </div>
-  <div v-if="errors.city" class="error-message">{{ errors.city }}</div>
-</div>
+        <!-- Поля Telegram - активны только в браузере -->
+        <div v-if="!isWebApp" class="telegram-fields">
+          <div class="form-group">
+            <label for="telegramUsername">Telegram Username *</label>
+            <input
+              type="text" 
+              id="telegramUsername"
+              v-model="form.telegramUsername"
+              :class="{ 'error': errors.telegramUsername }"
+              placeholder="@username"
+              required
+            >
+            <div v-if="errors.telegramUsername" class="error-message">{{ errors.telegramUsername }}</div>
+          </div>
 
-<div class="form-group">
-  <label for="churchName">Название Церкви *</label>
-  <input
-    type="text" 
-    id="churchName"
-    v-model="form.churchName"
-    :class="{ 'error': errors.churchName }"
-    required
-  >
-  <div v-if="errors.churchName" class="error-message">{{ errors.churchName }}</div>
-</div>
+          <div class="form-group">
+            <label for="telegramId">Telegram ID *</label>
+            <input
+              type="number" 
+              id="telegramId"
+              v-model="form.telegramId"
+              :class="{ 'error': errors.telegramId }"
+              placeholder="123456789"
+              required
+            >
+            <div v-if="errors.telegramId" class="error-message">{{ errors.telegramId }}</div>
+          </div>
+        </div>
+
+        <!-- Информация о Telegram пользователе в WebApp -->
+        <div v-if="isWebApp && telegramUser" class="telegram-info">
+          <div class="info-card">
+            <h4>📱 Данные Telegram</h4>
+            <p><strong>ID:</strong> {{ telegramUser.id }}</p>
+            <p v-if="telegramUser.username"><strong>Username:</strong> @{{ telegramUser.username }}</p>
+            <p v-if="telegramUser.first_name"><strong>Имя:</strong> {{ telegramUser.first_name }}</p>
+            <p v-if="telegramUser.last_name"><strong>Фамилия:</strong> {{ telegramUser.last_name }}</p>
+          </div>
+        </div>
 
         <div class="form-group">
-          <label for="fullName">Номер телефона для связи</label>
+          <label for="city">Город *</label>
+          <div class="city-input-container">
+            <input
+              type="text" 
+              id="city"
+              v-model="form.city"
+              :class="{ 'error': errors.city }"
+              placeholder="Начните вводить название города"
+              @input="filterCities"
+              @focus="showCityDropdown = true"
+              required
+            >
+            <div v-if="showCityDropdown && filteredCities.length > 0" class="city-dropdown">
+              <div 
+                v-for="city in filteredCities"
+                :key="city"
+                class="city-option"
+                @click="selectCity(city)"
+              >
+                {{ city }}
+              </div>
+            </div>
+          </div>
+          <div v-if="errors.city" class="error-message">{{ errors.city }}</div>
+        </div>
+
+        <div class="form-group">
+          <label for="churchName">Название Церкви *</label>
+          <input
+            type="text" 
+            id="churchName"
+            v-model="form.churchName"
+            :class="{ 'error': errors.churchName }"
+            required
+          >
+          <div v-if="errors.churchName" class="error-message">{{ errors.churchName }}</div>
+        </div>
+
+        <div class="form-group">
+          <label for="phone">Номер телефона для связи</label>
           <input
             type="text" 
             id="phone"
             v-model="form.phone"
             :class="{ 'error': errors.phone }"
-            required
+            placeholder="+7 (999) 123-45-67"
           >
-          <div v-if="errors.fullName" class="error-message">{{ errors.fullName }}</div>
+          <div v-if="errors.phone" class="error-message">{{ errors.phone }}</div>
         </div>
 
         <div class="form-group">
@@ -185,6 +255,10 @@ export default {
     const existingUser = ref(null)
     const cities = ref([])
     const filteredCities = ref([])
+    const registrationInfo = ref(null)
+    
+    // Определяем, открыто ли приложение в WebApp
+    const isWebApp = ref(false)
     
     const form = reactive({
       fullName: '',
@@ -193,14 +267,18 @@ export default {
       phone: '',
       comments: '',
       needAccommodation: false,
-      terms: false
+      terms: false,
+      telegramUsername: '',
+      telegramId: ''
     })
 
     const errors = reactive({
       fullName: '',
       city: '',
       churchName: '',
-      terms: ''
+      terms: '',
+      telegramUsername: '',
+      telegramId: ''
     })
     
     // Форматирование даты
@@ -213,6 +291,21 @@ export default {
         hour: '2-digit',
         minute: '2-digit'
       })
+    }
+    
+    // Определение WebApp
+    const detectWebApp = () => {
+      isWebApp.value = !!(window.Telegram && window.Telegram.WebApp)
+    }
+    
+    // Загрузка информации о регистрации
+    const loadRegistrationInfo = async () => {
+      try {
+        const response = await api.get('/api/registration-settings')
+        registrationInfo.value = response.data
+      } catch (error) {
+        console.error('Ошибка загрузки информации о регистрации:', error)
+      }
     }
     
     // Загрузка городов из JSON файла
@@ -258,6 +351,18 @@ export default {
       existingUserMessage.value = ''
       existingUser.value = null
       
+      // Проверяем, открыта ли регистрация
+      if (registrationInfo.value && !registrationInfo.value.is_open) {
+        alert('Регистрация закрыта')
+        return false
+      }
+      
+      // Проверяем, не достигнут ли лимит
+      if (registrationInfo.value && registrationInfo.value.is_full) {
+        alert('Достигнут лимит участников')
+        return false
+      }
+      
       // Валидация имени
       if (!form.fullName.trim()) {
         errors.fullName = 'Поле "Полное имя" обязательно для заполнения'
@@ -285,6 +390,25 @@ export default {
         isValid = false
       }
       
+      // Валидация Telegram полей (только для браузера)
+      if (!isWebApp.value) {
+        if (!form.telegramUsername.trim()) {
+          errors.telegramUsername = 'Поле "Telegram Username" обязательно для заполнения'
+          isValid = false
+        } else if (!form.telegramUsername.startsWith('@')) {
+          errors.telegramUsername = 'Username должен начинаться с @'
+          isValid = false
+        }
+        
+        if (!form.telegramId) {
+          errors.telegramId = 'Поле "Telegram ID" обязательно для заполнения'
+          isValid = false
+        } else if (!Number.isInteger(Number(form.telegramId)) || Number(form.telegramId) <= 0) {
+          errors.telegramId = 'Telegram ID должен быть положительным числом'
+          isValid = false
+        }
+      }
+      
       // Валидация согласия с условиями
       if (!form.terms) {
         errors.terms = 'Необходимо согласие с условиями участия'
@@ -310,27 +434,38 @@ export default {
     const submitForm = async () => {
       isLoading.value = true
       try {
-        // Проверяем наличие данных Telegram пользователя
-        if (!props.telegramUser) {
-          throw new Error('Данные Telegram пользователя не найдены')
-        }
-        
-        // Отправка данных на backend-api
-        const response = await api.post('/api/users', {
+        // Подготавливаем данные для отправки
+        const submitData = {
           full_name: form.fullName,
           city: form.city,
           church_name: form.churchName,
           comments: form.comments,
           need_accommodation: form.needAccommodation,
-          phone: form.phone,
-          telegram_username: props.telegramUser.username,
-          telegram_id: props.telegramUser.id
-        })
+          phone: form.phone
+        }
+        
+        // Добавляем Telegram данные в зависимости от контекста
+        if (isWebApp.value && props.telegramUser) {
+          // В WebApp используем данные из Telegram
+          submitData.telegram_username = props.telegramUser.username
+          submitData.telegram_id = props.telegramUser.id
+        } else {
+          // В браузере используем данные из формы
+          submitData.telegram_username = form.telegramUsername
+          submitData.telegram_id = form.telegramId
+        }
+        
+        // Отправка данных на backend-api
+        const response = await api.post('/api/users', submitData)
+        
         // Успешная регистрация
         const registeredUser = response.data
         existingUser.value = registeredUser
         existingUserMessage.value = ''
         showConfirmDialog.value = false
+        
+        // Обновляем информацию о регистрации
+        await loadRegistrationInfo()
       } catch (error) {
         console.error('Ошибка при отправке формы:', error)
         if (error.response && error.response.status === 400) {
@@ -363,6 +498,8 @@ export default {
         await api.post(`/api/users/${userId}/cancel`)
         existingUser.value = null
         existingUserMessage.value = ''
+        // Обновляем информацию о регистрации
+        await loadRegistrationInfo()
       } catch (error) {
         alert('Ошибка при отмене регистрации. Попробуйте еще раз.')
       } finally {
@@ -373,13 +510,23 @@ export default {
     onMounted(async () => {
       document.addEventListener('click', handleClickOutside)
       loadCities()
+      detectWebApp()
+      loadRegistrationInfo()
       
-      // Автозаполнение имени из Telegram
+      // Автозаполнение данных из Telegram
       if (props.telegramUser) {
+        // Автозаполнение имени из Telegram
         form.fullName = props.telegramUser.first_name
         if (props.telegramUser.last_name) {
           form.fullName += ' ' + props.telegramUser.last_name
         }
+        
+        // В браузере заполняем поля Telegram
+        if (!isWebApp.value) {
+          form.telegramUsername = props.telegramUser.username ? `@${props.telegramUser.username}` : ''
+          form.telegramId = props.telegramUser.id || ''
+        }
+        
         // Попытка автозаполнить форму по telegramId
         try {
           const resp = await api.get(`/api/users?telegramId=${props.telegramUser.id}`)
@@ -392,6 +539,7 @@ export default {
               form.churchName = u.church_name || ''
               form.comments = u.comments || ''
               form.needAccommodation = u.need_accommodation || false
+              form.phone = u.phone || ''
               existingUser.value = u
             }
           }
@@ -415,6 +563,8 @@ export default {
       filteredCities,
       existingUserMessage,
       existingUser,
+      registrationInfo,
+      isWebApp,
       formatDate,
       filterCities,
       selectCity,
@@ -696,5 +846,151 @@ export default {
   .form-container {
     padding: 20px;
   }
+}
+
+/* Стили для Telegram полей */
+.telegram-fields {
+  background: rgba(102, 126, 234, 0.05);
+  border: 2px solid rgba(102, 126, 234, 0.1);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.telegram-fields::before {
+  content: '🌐 Режим браузера';
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #667eea;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+/* Стили для информации о Telegram пользователе */
+.telegram-info {
+  margin-bottom: 20px;
+}
+
+.info-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+}
+
+.info-card h4 {
+  margin: 0 0 15px 0;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.info-card p {
+  margin: 8px 0;
+  font-size: 0.95rem;
+  opacity: 0.95;
+}
+
+.info-card strong {
+  font-weight: 600;
+  opacity: 1;
+}
+
+/* Стили для информации о регистрации */
+.registration-info {
+  margin-bottom: 20px;
+}
+
+.registration-info .info-card {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.stats-compact {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+}
+
+.stat-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.stat-icon {
+  font-size: 1.2rem;
+}
+
+.stat-label {
+  font-size: 0.9rem;
+  color: #666;
+  font-weight: 500;
+}
+
+.stat-value {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #333;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(40, 167, 69, 0.1);
+  color: #28a745;
+}
+
+.stat-value.warning {
+  background: rgba(255, 193, 7, 0.1);
+  color: #ffc107;
+}
+
+.stat-value.danger {
+  background: rgba(220, 53, 69, 0.1);
+  color: #dc3545;
+}
+
+.stat-secondary {
+  text-align: right;
+}
+
+.stat-small {
+  font-size: 0.8rem;
+  color: #999;
+  font-weight: 400;
+}
+
+/* Стили для закрытой регистрации */
+.registration-closed {
+  margin-bottom: 20px;
+}
+
+.closed-message {
+  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+  color: white;
+  padding: 30px;
+  border-radius: 12px;
+  text-align: center;
+  box-shadow: 0 8px 25px rgba(220, 53, 69, 0.3);
+}
+
+.closed-message h3 {
+  margin: 0 0 15px 0;
+  font-size: 1.3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.closed-message p {
+  margin: 8px 0;
+  font-size: 1rem;
+  opacity: 0.95;
 }
 </style> 

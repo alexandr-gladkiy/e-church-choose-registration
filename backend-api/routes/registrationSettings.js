@@ -17,18 +17,79 @@ function auth(req, res, next) {
 
 // Получить настройки
 router.get('/', async (req, res) => {
-  const result = await pool.query('SELECT * FROM registration_settings LIMIT 1');
-  res.json(result.rows[0]);
+  try {
+    const result = await pool.query('SELECT * FROM registration_settings LIMIT 1');
+    
+    // Получаем количество активных участников
+    const participantsResult = await pool.query(
+      'SELECT COUNT(*) as count FROM users WHERE cancelled_at IS NULL'
+    );
+    
+    const settings = result.rows[0];
+    const activeParticipants = parseInt(participantsResult.rows[0].count);
+    
+    // Добавляем информацию о доступных местах
+    const availableSpots = settings.max_participants ? 
+      Math.max(0, settings.max_participants - activeParticipants) : null;
+    
+    res.json({
+      ...settings,
+      active_participants: activeParticipants,
+      available_spots: availableSpots,
+      is_full: settings.max_participants ? activeParticipants >= settings.max_participants : false
+    });
+  } catch (error) {
+    console.error('Ошибка при получении настроек:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
 });
 
 // Изменить настройки (только для админа)
 router.put('/', auth, async (req, res) => {
-  const { is_open, registration_start, registration_deadline } = req.body;
-  const result = await pool.query(
-    `UPDATE registration_settings SET is_open = $1, registration_start = $2, registration_deadline = $3 WHERE id = 1 RETURNING *`,
-    [is_open, registration_start, registration_deadline]
-  );
-  res.json({ success: true, settings: result.rows[0] });
+  try {
+    const { 
+      is_open, 
+      registration_start, 
+      registration_deadline, 
+      max_participants,
+      browser_access_enabled 
+    } = req.body;
+    
+    const result = await pool.query(
+      `UPDATE registration_settings 
+       SET is_open = $1, 
+           registration_start = $2, 
+           registration_deadline = $3,
+           max_participants = $4,
+           browser_access_enabled = $5
+       WHERE id = 1 
+       RETURNING *`,
+      [is_open, registration_start, registration_deadline, max_participants, browser_access_enabled]
+    );
+    
+    // Получаем обновленную информацию о участниках
+    const participantsResult = await pool.query(
+      'SELECT COUNT(*) as count FROM users WHERE cancelled_at IS NULL'
+    );
+    
+    const settings = result.rows[0];
+    const activeParticipants = parseInt(participantsResult.rows[0].count);
+    const availableSpots = settings.max_participants ? 
+      Math.max(0, settings.max_participants - activeParticipants) : null;
+    
+    res.json({ 
+      success: true, 
+      settings: {
+        ...settings,
+        active_participants: activeParticipants,
+        available_spots: availableSpots,
+        is_full: settings.max_participants ? activeParticipants >= settings.max_participants : false
+      }
+    });
+  } catch (error) {
+    console.error('Ошибка при обновлении настроек:', error);
+    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+  }
 });
 
 module.exports = router; 

@@ -1,0 +1,29 @@
+User-agent: *
+Disallow: /
+
+# Запрет индексации для всех поисковых роботов
+User-agent: Googlebot
+Disallow: /
+
+User-agent: Bingbot
+Disallow: /
+
+User-agent: Yandex
+Disallow: /
+
+User-agent: Baiduspider
+Disallow: /
+
+User-agent: DuckDuckBot
+Disallow: /
+
+# Запрет доступа к API
+User-agent: *
+Disallow: /api/
+
+# Запрет доступа к админ-панели
+User-agent: *
+Disallow: /admin/
+
+# Sitemap (не предоставляем)
+# Sitemap: https://example.com/sitemap.xml 
