@@ -22,16 +22,13 @@ const allowedOrigins = [
   'https://localhost:5174'
 ];
 
-// Добавляем поддомены из переменных окружения
+// Добавляем основной домен из переменных окружения
 if (process.env.DOMAIN) {
   const domain = process.env.DOMAIN.replace('https://', '').replace('http://', '');
-  const adminDomain = process.env.ADMIN_DOMAIN?.replace('https://', '').replace('http://', '') || `admin.${domain}`;
   
   allowedOrigins.push(
     `https://${domain}`,
-    `https://${adminDomain}`,
-    `http://${domain}`,
-    `http://${adminDomain}`
+    `http://${domain}`
   );
 }
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Скрипт для автоматического развёртывания event-registration на сервер
-# Использование: ./deploy.sh [GITHUB_REPO_URL] [BOT_TOKEN] [DOMAIN] [ADMIN_DOMAIN] [API_DOMAIN]
+# Использование: ./deploy.sh [GITHUB_REPO_URL] [BOT_TOKEN] [DOMAIN]
 
 set -e  # Остановка при ошибке
 
@@ -27,19 +27,15 @@ error() {
 }
 
 # Проверка аргументов и интерактивный ввод, если не переданы
-if [ $# -lt 5 ]; then
+if [ $# -lt 3 ]; then
     echo "\n--- Интерактивная настройка деплоя ---"
     read -p "Введите ссылку на git-репозиторий: " GITHUB_REPO_URL
     read -p "Введите токен Telegram-бота: " BOT_TOKEN
     read -p "Введите основной домен (например, choose.su): " DOMAIN
-    read -p "Введите поддомен для админки (например, admin.choose.su): " ADMIN_DOMAIN
-    read -p "Введите поддомен для API (например, api.choose.su): " API_DOMAIN
 else
     GITHUB_REPO_URL=$1
     BOT_TOKEN=$2
     DOMAIN=$3
-    ADMIN_DOMAIN=$4
-    API_DOMAIN=$5
 fi
 
 PROJECT_NAME="event-registration"
@@ -47,8 +43,8 @@ PROJECT_NAME="event-registration"
 log "Начинаем развёртывание проекта event-registration"
 log "Репозиторий: $GITHUB_REPO_URL"
 log "Домен: $DOMAIN"
-log "Admin поддомен: $ADMIN_DOMAIN"
-log "API поддомен: $API_DOMAIN"
+log "Admin Panel: https://$DOMAIN/admin"
+log "API: https://$DOMAIN/api"
 
 # Обновление системы
 log "Обновляем систему..."
@@ -104,33 +100,33 @@ log "Создаём .env файл..."
 cat > .env << EOF
 BOT_TOKEN=$BOT_TOKEN
 DOMAIN=https://$DOMAIN
-ADMIN_DOMAIN=https://$ADMIN_DOMAIN
-API_DOMAIN=https://$API_DOMAIN
 EOF
 
 # Обновление docker-compose.yaml для продакшена
 log "Обновляем конфигурацию для продакшена..."
 sed -i 's/version: .*/# version removed for docker-compose v2/' docker-compose.yaml
 
-# Создание nginx конфигурации для проксирования с поддоменами и HTTPS
-log "Создаём nginx конфигурацию с поддоменами и HTTPS..."
+# Создание nginx конфигурации для проксирования с путями и HTTPS
+log "Создаём nginx конфигурацию с путями и HTTPS..."
 cat > nginx.conf << EOF
 # HTTP redirect to HTTPS
 server {
     listen 80;
-    server_name $DOMAIN $ADMIN_DOMAIN $API_DOMAIN;
+    server_name $DOMAIN;
     return 301 https://\$host\$request_uri;
 }
 
-# Telegram WebApp HTTPS
+# Main HTTPS server with path-based routing
 server {
     listen 443 ssl;
     server_name $DOMAIN;
     ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
     include ssl-params.conf;
-    location / {
-        proxy_pass http://localhost:5174;
+    
+    # Admin Panel - /admin
+    location /admin {
+        proxy_pass http://localhost:5173/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -139,18 +135,22 @@ server {
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_cache_bypass \$http_upgrade;
+        proxy_redirect off;
     }
-}
-
-# Admin Panel HTTPS
-server {
-    listen 443 ssl;
-    server_name $ADMIN_DOMAIN;
-    ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
-    include ssl-params.conf;
+    
+    # API - /api
+    location /api {
+        proxy_pass http://localhost:3000/api;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+    
+    # Telegram WebApp - root path
     location / {
-        proxy_pass http://localhost:5173;
+        proxy_pass http://localhost:5174/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -159,23 +159,7 @@ server {
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_cache_bypass \$http_upgrade;
-    }
-}
-
-# API HTTPS
-server {
-    listen 443 ssl;
-    server_name $API_DOMAIN;
-    ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
-    include ssl-params.conf;
-    location / {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_redirect off;
     }
 }
 EOF
@@ -213,9 +197,9 @@ sudo systemctl enable nginx
 
 # Настройка HTTPS через certbot
 if [ "$DOMAIN" != "localhost" ]; then
-  log "Устанавливаем certbot и настраиваем HTTPS для $DOMAIN, $ADMIN_DOMAIN, $API_DOMAIN..."
+  log "Устанавливаем certbot и настраиваем HTTPS для $DOMAIN..."
   sudo apt-get install -y certbot python3-certbot-nginx
-  sudo certbot --nginx --non-interactive --agree-tos --redirect -m admin@$DOMAIN -d $DOMAIN -d $ADMIN_DOMAIN -d $API_DOMAIN || warn "Certbot завершился с ошибкой, проверьте домен и DNS-записи."
+  sudo certbot --nginx --non-interactive --agree-tos --redirect -m admin@$DOMAIN -d $DOMAIN || warn "Certbot завершился с ошибкой, проверьте домен и DNS-записи."
 fi
 
 # Настройка firewall
@@ -341,13 +325,13 @@ else
 fi
 
 if curl -f http://localhost:5173 > /dev/null 2>&1; then
-    log "✅ Admin Panel доступен на https://$ADMIN_DOMAIN"
+    log "✅ Admin Panel доступен на https://$DOMAIN/admin"
 else
     warn "⚠️ Admin Panel недоступен"
 fi
 
 if curl -f http://localhost:3000 > /dev/null 2>&1; then
-    log "✅ API доступен на https://$API_DOMAIN"
+    log "✅ API доступен на https://$DOMAIN/api"
 else
     warn "⚠️ API недоступен"
 fi
@@ -358,8 +342,8 @@ echo ""
 echo "🔧 Информация о развёртывании:"
 echo "   • Проект: /opt/$PROJECT_NAME"
 echo "   • Telegram WebApp: https://$DOMAIN"
-echo "   • Admin Panel: https://$ADMIN_DOMAIN"
-echo "   • API: https://$API_DOMAIN"
+echo "   • Admin Panel: https://$DOMAIN/admin"
+echo "   • API: https://$DOMAIN/api"
 echo ""
 echo "🔧 Управление:"
 echo "   • Статус: event-registration-manage status"
