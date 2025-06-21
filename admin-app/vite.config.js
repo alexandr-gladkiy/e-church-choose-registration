@@ -5,6 +5,15 @@ import vue from '@vitejs/plugin-vue'
 export default defineConfig({
   plugins: [vue()],
   base: '/admin/',
+  build: {
+    outDir: 'dist',
+    assetsDir: 'assets',
+    rollupOptions: {
+      output: {
+        manualChunks: undefined
+      }
+    }
+  },
   preview: {
     allowedHosts: ['choose.su']
   }
