@@ -114,7 +114,7 @@ sed -i 's/version: .*/# version removed for docker-compose v2/' docker-compose.y
 
 # Создание nginx конфигурации для проксирования с поддоменами и HTTPS
 log "Создаём nginx конфигурацию с поддоменами и HTTPS..."
-cat > nginx.conf << "EOF"
+cat > nginx.conf << EOF
 # HTTP redirect to HTTPS
 server {
     listen 80;
