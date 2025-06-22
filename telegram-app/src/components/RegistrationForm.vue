@@ -64,8 +64,8 @@
           <div v-if="errors.fullName" class="error-message">{{ errors.fullName }}</div>
         </div>
 
-        <!-- Поля Telegram - активны только в браузере -->
-        <div v-if="!isWebApp" class="telegram-fields">
+        <!-- Поля Telegram - всегда видны для тестирования -->
+        <div class="telegram-fields">
           <div class="form-group">
             <label for="telegramUsername">Telegram Username *</label>
             <input
@@ -90,6 +90,10 @@
               required
             >
             <div v-if="errors.telegramId" class="error-message">{{ errors.telegramId }}</div>
+          </div>
+          <div class="test-hint" style="margin-bottom: 10px; color: #888; font-size: 0.95em;">
+            Для тестирования: вы можете изменить эти поля вручную или передать значения через параметры URL.<br>
+            Например: <code>?test_user_id=5555&test_username=vasya</code>
           </div>
         </div>
 
@@ -390,23 +394,21 @@ export default {
         isValid = false
       }
       
-      // Валидация Telegram полей (только для браузера)
-      if (!isWebApp.value) {
-        if (!form.telegramUsername.trim()) {
-          errors.telegramUsername = 'Поле "Telegram Username" обязательно для заполнения'
-          isValid = false
-        } else if (!form.telegramUsername.startsWith('@')) {
-          errors.telegramUsername = 'Username должен начинаться с @'
-          isValid = false
-        }
-        
-        if (!form.telegramId) {
-          errors.telegramId = 'Поле "Telegram ID" обязательно для заполнения'
-          isValid = false
-        } else if (!Number.isInteger(Number(form.telegramId)) || Number(form.telegramId) <= 0) {
-          errors.telegramId = 'Telegram ID должен быть положительным числом'
-          isValid = false
-        }
+      // Валидация Telegram полей (всегда проверяем)
+      if (!form.telegramUsername.trim()) {
+        errors.telegramUsername = 'Поле "Telegram Username" обязательно для заполнения'
+        isValid = false
+      } else if (!form.telegramUsername.startsWith('@')) {
+        errors.telegramUsername = 'Username должен начинаться с @'
+        isValid = false
+      }
+      
+      if (!form.telegramId) {
+        errors.telegramId = 'Поле "Telegram ID" обязательно для заполнения'
+        isValid = false
+      } else if (!Number.isInteger(Number(form.telegramId)) || Number(form.telegramId) <= 0) {
+        errors.telegramId = 'Telegram ID должен быть положительным числом'
+        isValid = false
       }
       
       // Валидация согласия с условиями
@@ -449,17 +451,23 @@ export default {
           // В WebApp используем данные из Telegram
           submitData.telegram_username = props.telegramUser.username
           submitData.telegram_id = props.telegramUser.id
+        } else if (props.telegramUser) {
+          // В браузере используем данные из формы или из props
+          submitData.telegram_username = form.telegramUsername.replace('@', '') || props.telegramUser.username
+          submitData.telegram_id = form.telegramId || props.telegramUser.id
         } else {
-          // В браузере используем данные из формы
-          submitData.telegram_username = form.telegramUsername
+          // Fallback - используем данные из формы
+          submitData.telegram_username = form.telegramUsername.replace('@', '')
           submitData.telegram_id = form.telegramId
         }
+        
+        console.log('Отправляемые данные:', submitData)
         
         // Отправка данных на backend-api
         const response = await api.post('/api/users', submitData)
         
         // Успешная регистрация
-        const registeredUser = response.data
+        const registeredUser = response.data.user || response.data
         existingUser.value = registeredUser
         existingUserMessage.value = ''
         showConfirmDialog.value = false
@@ -469,7 +477,7 @@ export default {
       } catch (error) {
         console.error('Ошибка при отправке формы:', error)
         if (error.response && error.response.status === 400) {
-          existingUserMessage.value = error.response.data.message
+          existingUserMessage.value = error.response.data.error || error.response.data.message
           existingUser.value = error.response.data.existingUser
           showConfirmDialog.value = false
         } else {
@@ -515,13 +523,15 @@ export default {
       
       // Автозаполнение данных из Telegram
       if (props.telegramUser) {
+        console.log('Telegram user data:', props.telegramUser)
+        
         // Автозаполнение имени из Telegram
         form.fullName = props.telegramUser.first_name
         if (props.telegramUser.last_name) {
           form.fullName += ' ' + props.telegramUser.last_name
         }
         
-        // В браузере заполняем поля Telegram
+        // Заполняем поля Telegram для тестирования в браузере
         if (!isWebApp.value) {
           form.telegramUsername = props.telegramUser.username ? `@${props.telegramUser.username}` : ''
           form.telegramId = props.telegramUser.id || ''

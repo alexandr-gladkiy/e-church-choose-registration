@@ -30,7 +30,10 @@
           <td>{{ user.registration_date ? new Date(user.registration_date).toLocaleDateString('ru-RU') : '-' }}</td>
           <td>{{ user.cancelled_at ? 'Да' : 'Нет' }}</td>
           <td>
-            <button v-if="!user.cancelled_at" class="btn btn-sm btn-outline-danger" @click="confirmCancel(user.id)">Отменить</button>
+            <div class="btn-group" role="group">
+              <button v-if="!user.cancelled_at" class="btn btn-sm btn-outline-danger" @click="confirmCancel(user.id)">Отменить</button>
+              <button class="btn btn-sm btn-outline-danger" @click="confirmDelete(user.id, user.full_name)">Удалить</button>
+            </div>
           </td>
         </tr>
       </tbody>
@@ -110,7 +113,14 @@ function confirmCancel(id) {
     emit('cancel', id)
   }
 }
-const emit = defineEmits(['cancel'])
+
+function confirmDelete(id, full_name) {
+  if (window.confirm(`Вы уверены, что хотите удалить пользователя "${full_name}"?`)) {
+    emit('delete', id)
+  }
+}
+
+const emit = defineEmits(['cancel', 'delete'])
 </script>
 
 <style scoped>

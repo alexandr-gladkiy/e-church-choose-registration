@@ -13,9 +13,13 @@
         @refresh-settings="refreshSettings"
       />
       <RegistrationForm 
-        v-else
+        v-else-if="browserAccessEnabled || isTelegramWebView"
         :telegram-user="telegramUser"
       />
+      <div v-else class="browser-blocked">
+        <h2>Регистрация доступна только через Telegram</h2>
+        <p>Пожалуйста, откройте это приложение через Telegram-бота.</p>
+      </div>
     </div>
   </div>
 </template>
@@ -44,6 +48,8 @@ export default {
     const browserOverride = ref(false)
     const isAdmin = ref(false)
     const browserAccessEnabled = ref(false)
+    const isTelegramWebView = ref(false)
+    const loading = ref(true)
 
     // Определяем, нужно ли показывать заглушку
     const showBrowserBlock = computed(() => {
@@ -132,8 +138,39 @@ export default {
         // Получаем данные пользователя
         if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
           telegramUser.value = tg.initDataUnsafe.user
+          console.log('Telegram WebApp user data:', telegramUser.value)
         }
+      } else {
+        // Для тестирования в браузере создаем тестовые данные
+        // Можно переопределить через URL параметры
+        const urlParams = new URLSearchParams(window.location.search)
+        const testUserId = urlParams.get('test_user_id') || '123456789'
+        const testUsername = urlParams.get('test_username') || 'testuser'
+        const testFirstName = urlParams.get('test_first_name') || 'Тестовый'
+        const testLastName = urlParams.get('test_last_name') || 'Пользователь'
+        
+        telegramUser.value = {
+          id: parseInt(testUserId),
+          username: testUsername,
+          first_name: testFirstName,
+          last_name: testLastName,
+          is_bot: false
+        }
+        console.log('Test Telegram user data:', telegramUser.value)
       }
+
+      // Проверяем, запущено ли приложение в Telegram WebView
+      isTelegramWebView.value = typeof window !== 'undefined' && !!window.Telegram && !!window.Telegram.WebApp;
+
+      // Получаем настройки с сервера
+      try {
+        const res = await fetch('/api/registration-settings');
+        const settings = await res.json();
+        browserAccessEnabled.value = settings.browser_access_enabled;
+      } catch (e) {
+        browserAccessEnabled.value = false;
+      }
+      loading.value = false;
     })
 
     onUnmounted(() => {
@@ -145,7 +182,10 @@ export default {
       showBrowserBlock,
       isAdmin,
       enableRegistration,
-      refreshSettings
+      refreshSettings,
+      browserAccessEnabled,
+      isTelegramWebView,
+      loading
     }
   }
 }
@@ -196,5 +236,16 @@ export default {
   .container {
     padding: 10px;
   }
+}
+
+.loading-block {
+  text-align: center;
+  margin-top: 50px;
+  font-size: 1.2em;
+}
+.browser-blocked {
+  text-align: center;
+  margin-top: 50px;
+  color: #888;
 }
 </style> 
