@@ -34,12 +34,15 @@
               <button class="btn btn-success" @click="exportCSVFile">
                 <i class="bi bi-download"></i> Экспорт в CSV
               </button>
+              <button class="btn btn-info" @click="exportPDFFile">
+                <i class="bi bi-file-pdf"></i> Экспорт в PDF
+              </button>
               <button class="btn btn-secondary" @click="refreshData">
                 <i class="bi bi-arrow-clockwise"></i> Обновить данные
               </button>
             </div>
             <AddUserForm @add="handleAddUser" class="mb-4" />
-            <RegistrationsTable :users="users" @cancel="handleCancel" />
+            <RegistrationsTable :users="users" @cancel="handleCancel" @delete="handleDelete" />
           </div>
           <div v-else-if="tab==='stats'">
             <StatsGrid :stats="stats" class="mb-4" />
@@ -67,7 +70,7 @@ import AddUserForm from './components/AddUserForm.vue'
 import Message from './components/Message.vue'
 import ChangePasswordForm from './components/ChangePasswordForm.vue'
 import RegistrationSettingsForm from './components/RegistrationSettingsForm.vue'
-import { login, fetchUsers, addUser, cancelRegistration, exportCSV, changePassword, getCurrentAdmin } from './api.js'
+import { login, fetchUsers, addUser, cancelRegistration, deleteUser, exportCSV, exportPDF, changePassword, getCurrentAdmin } from './api.js'
 
 const isAuth = ref(false)
 const users = ref([])
@@ -196,6 +199,21 @@ async function exportCSVFile() {
   }
 }
 
+async function exportPDFFile() {
+  try {
+    loading.value = true
+    const blob = await exportPDF()
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'active_registrations.pdf'
+    a.click()
+    window.URL.revokeObjectURL(url)
+  } finally {
+    loading.value = false
+  }
+}
+
 function logout() {
   isAuth.value = false
   users.value = []
@@ -216,6 +234,16 @@ async function handleChangePassword({ oldPassword, newPassword, setError, setSuc
     setTimeout(() => closeChangePassword(), 2000)
   } else {
     setError(res.error || 'Ошибка смены пароля')
+  }
+}
+
+async function handleDelete(userId) {
+  const res = await deleteUser(userId)
+  if (res.success) {
+    showMessage('Пользователь удален', 'success')
+    await loadData()
+  } else {
+    showMessage(res.error || 'Ошибка удаления', 'error')
   }
 }
 </script>

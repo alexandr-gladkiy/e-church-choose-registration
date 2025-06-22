@@ -54,8 +54,21 @@ export async function cancelRegistration(userId) {
   return handleResponse(response);
 }
 
+export async function deleteUser(userId) {
+  const response = await fetch(`${API_BASE}/users/${userId}`, {
+    method: 'DELETE',
+    headers: authHeaders()
+  });
+  return handleResponse(response);
+}
+
 export async function exportCSV() {
-  const response = await fetch(`${API_BASE}/users/export`)
+  const response = await fetch(`${API_BASE}/users/export/csv`, { headers: authHeaders() })
+  return response.blob()
+}
+
+export async function exportPDF() {
+  const response = await fetch(`${API_BASE}/users/export/pdf`, { headers: authHeaders() })
   return response.blob()
 }
 
