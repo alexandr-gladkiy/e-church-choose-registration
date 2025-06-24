@@ -106,11 +106,14 @@
         <div class="form-group">
           <label for="phone">Номер телефона для связи</label>
           <input
-            type="text" 
+            type="tel"
             id="phone"
             v-model="form.phone"
             :class="{ 'error': errors.phone }"
             placeholder="+7 (999) 123-45-67"
+            pattern="[0-9+\-\(\)\s]+"
+            inputmode="numeric"
+            @input="handlePhoneInput"
           >
           <div v-if="errors.phone" class="error-message">{{ errors.phone }}</div>
         </div>
@@ -298,6 +301,83 @@ export default {
       showCityDropdown.value = false
     }
 
+    // Форматирование номера телефона
+    const formatPhone = (value) => {
+      // Убираем все символы кроме цифр и +
+      let cleaned = value.replace(/[^\d+]/g, '')
+      
+      // Если начинается с 8, заменяем на +7
+      if (cleaned.startsWith('8')) {
+        cleaned = '+7' + cleaned.substring(1)
+      }
+      
+      // Если начинается с 7 без +, добавляем +
+      if (cleaned.startsWith('7') && !cleaned.startsWith('+7')) {
+        cleaned = '+' + cleaned
+      }
+      
+      // Если не начинается с +, добавляем +
+      if (!cleaned.startsWith('+') && cleaned.length > 0) {
+        cleaned = '+' + cleaned
+      }
+      
+      // Форматируем номер в виде +7 (999) 123-45-67
+      if (cleaned.startsWith('+7') && cleaned.length >= 12) {
+        const match = cleaned.match(/^\+7(\d{3})(\d{3})(\d{2})(\d{2})$/)
+        if (match) {
+          return `+7 (${match[1]}) ${match[2]}-${match[3]}-${match[4]}`
+        }
+      }
+      
+      return cleaned
+    }
+
+    const validatePhone = () => {
+      // Очищаем ошибку телефона
+      errors.phone = ''
+      
+      // Если поле пустое - не валидируем (поле необязательное)
+      if (!form.phone.trim()) {
+        return true
+      }
+      
+      // Убираем все пробелы и символы форматирования
+      const cleanPhone = form.phone.replace(/[\s\-\(\)]/g, '')
+      
+      // Проверяем, что остались только цифры и +
+      if (!/^\+?[0-9]+$/.test(cleanPhone)) {
+        errors.phone = 'Номер телефона может содержать только цифры, пробелы, скобки и знак +'
+        return false
+      }
+      
+      // Проверяем длину (минимум 10 цифр, максимум 15)
+      const digitsOnly = cleanPhone.replace(/\+/, '')
+      if (digitsOnly.length < 10) {
+        errors.phone = 'Номер телефона должен содержать минимум 10 цифр'
+        return false
+      }
+      
+      if (digitsOnly.length > 15) {
+        errors.phone = 'Номер телефона слишком длинный'
+        return false
+      }
+      
+      // Проверяем, что номер начинается с +7 или 7 или 8 (для России)
+      if (!/^(\+?7|8)/.test(cleanPhone)) {
+        errors.phone = 'Номер должен начинаться с +7, 7 или 8'
+        return false
+      }
+      
+      return true
+    }
+
+    // Обработчик изменения номера телефона
+    const handlePhoneInput = (event) => {
+      const formatted = formatPhone(event.target.value)
+      form.phone = formatted
+      validatePhone()
+    }
+
     // Валидация формы
     const validateForm = () => {
       let isValid = true
@@ -343,6 +423,11 @@ export default {
         isValid = false
       } else if (form.churchName.trim().length < 3) {
         errors.churchName = 'Название церкви должно содержать минимум 3 символа'
+        isValid = false
+      }
+      
+      // Валидация телефона
+      if (!validatePhone()) {
         isValid = false
       }
       
@@ -398,6 +483,11 @@ export default {
         existingUserMessage.value = ''
         showConfirmDialog.value = false
         
+        // Показываем сообщение о повторной активации, если это было
+        if (response.data.reactivated) {
+          existingUserMessage.value = 'Ваша регистрация была успешно восстановлена!'
+        }
+        
         // Обновляем информацию о регистрации
         await loadRegistrationInfo()
       } catch (error) {
@@ -431,7 +521,7 @@ export default {
       try {
         await api.post(`/api/users/${userId}/cancel`)
         existingUser.value = null
-        existingUserMessage.value = ''
+        existingUserMessage.value = 'Ваша регистрация была отменена. Вы можете зарегистрироваться повторно, заполнив форму ниже.'
         // Обновляем информацию о регистрации
         await loadRegistrationInfo()
       } catch (error) {
@@ -451,36 +541,94 @@ export default {
       if (props.telegramUser) {
         console.log('Telegram user data:', props.telegramUser)
         
-        // Автозаполнение имени из Telegram
-        form.fullName = props.telegramUser.first_name
-        if (props.telegramUser.last_name) {
-          form.fullName += ' ' + props.telegramUser.last_name
-        }
-        
-        // Автозаполнение номера телефона из Telegram WebApp
-        if (isWebApp.value && window.Telegram?.WebApp?.initDataUnsafe?.user?.phone_number) {
-          form.phone = window.Telegram.WebApp.initDataUnsafe.user.phone_number
-        }
-        
-        // Попытка автозаполнить форму по telegramId
+        // Попытка найти пользователя в базе данных
         try {
+          console.log('Пытаемся загрузить данные пользователя для telegramId:', props.telegramUser.id)
           const resp = await api.get(`/api/users?telegramId=${props.telegramUser.id}`)
+          console.log('Ответ API для автозаполнения:', resp.data)
+          
           if (resp.data && Array.isArray(resp.data) && resp.data.length > 0) {
             const u = resp.data[0]
-            // Проверяем, что пользователь не отменен
+            console.log('Найден пользователь в базе:', u)
+            
+            // Если пользователь есть в базе - используем данные из базы
+            console.log('Пользователь найден в базе, заполняем форму данными из базы...')
+            console.log('До заполнения - fullName:', form.fullName)
+            console.log('До заполнения - churchName:', form.churchName)
+            console.log('До заполнения - phone:', form.phone)
+            
+            form.fullName = u.full_name || ''
+            form.city = u.city || ''
+            form.churchName = u.church_name || ''
+            form.comments = u.comments || ''
+            form.needAccommodation = u.need_accommodation || false
+            form.phone = u.phone || ''
+            
+            // Если пользователь не отменен - показываем его как существующего
             if (!u.cancelled_at) {
-              form.fullName = u.full_name || form.fullName
-              form.city = u.city || ''
-              form.churchName = u.church_name || ''
-              form.comments = u.comments || ''
-              form.needAccommodation = u.need_accommodation || false
-              form.phone = u.phone || form.phone // Сохраняем телефон из Telegram если есть
               existingUser.value = u
+              console.log('Пользователь активен, показываем как существующего')
+            } else {
+              console.log('Пользователь отменен, но данные загружены для редактирования')
+              // Показываем сообщение о том, что регистрация была отменена
+              existingUserMessage.value = 'Ваша предыдущая регистрация была отменена. Вы можете зарегистрироваться повторно, заполнив форму ниже.'
+            }
+            
+            console.log('После заполнения из базы - fullName:', form.fullName)
+            console.log('После заполнения из базы - churchName:', form.churchName)
+            console.log('После заполнения из базы - phone:', form.phone)
+            console.log('После заполнения из базы - city:', form.city)
+          } else {
+            console.log('Пользователь не найден в базе данных, автозаполняем из Telegram')
+            
+            // Если пользователя нет в базе - автозаполняем из Telegram
+            // Автозаполнение имени из Telegram
+            console.log('Автозаполнение имени из Telegram...')
+            console.log('Telegram first_name:', props.telegramUser.first_name)
+            console.log('Telegram last_name:', props.telegramUser.last_name)
+            
+            if (props.telegramUser.first_name) {
+              form.fullName = props.telegramUser.first_name
+              if (props.telegramUser.last_name) {
+                form.fullName += ' ' + props.telegramUser.last_name
+              }
+              console.log('Имя автозаполнено из Telegram:', form.fullName)
+            } else {
+              console.log('Имя из Telegram пустое, не автозаполняем')
+            }
+            
+            // Автозаполнение номера телефона из Telegram WebApp
+            console.log('Проверяем автозаполнение телефона из WebApp...')
+            console.log('isWebApp:', isWebApp.value)
+            console.log('window.Telegram?.WebApp?.initDataUnsafe?.user?.phone_number:', window.Telegram?.WebApp?.initDataUnsafe?.user?.phone_number)
+            
+            if (isWebApp.value && window.Telegram?.WebApp?.initDataUnsafe?.user?.phone_number) {
+              form.phone = window.Telegram.WebApp.initDataUnsafe.user.phone_number
+              console.log('Телефон автозаполнен из WebApp:', form.phone)
+            } else {
+              console.log('Телефон не автозаполнен (не WebApp или нет доступа к номеру)')
             }
           }
         } catch (e) {
-          console.log('Пользователь не найден или ошибка запроса:', e.message)
-          // Нет отменённых регистраций — ничего не делаем
+          console.error('Ошибка при загрузке данных пользователя:', e)
+          console.log('Ошибка запроса, автозаполняем из Telegram:', e.message)
+          
+          // При ошибке API - автозаполняем из Telegram
+          // Автозаполнение имени из Telegram
+          console.log('Автозаполнение имени из Telegram (при ошибке API)...')
+          if (props.telegramUser.first_name) {
+            form.fullName = props.telegramUser.first_name
+            if (props.telegramUser.last_name) {
+              form.fullName += ' ' + props.telegramUser.last_name
+            }
+            console.log('Имя автозаполнено из Telegram:', form.fullName)
+          }
+          
+          // Автозаполнение номера телефона из Telegram WebApp
+          if (isWebApp.value && window.Telegram?.WebApp?.initDataUnsafe?.user?.phone_number) {
+            form.phone = window.Telegram.WebApp.initDataUnsafe.user.phone_number
+            console.log('Телефон автозаполнен из WebApp:', form.phone)
+          }
         }
       }
     })
@@ -506,7 +654,8 @@ export default {
       showConfirmation,
       hideConfirmation,
       submitForm,
-      handleCancelRegistration
+      handleCancelRegistration,
+      handlePhoneInput
     }
   }
 }

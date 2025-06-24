@@ -63,15 +63,42 @@ router.post('/', async (req, res) => {
     
     // Проверяем, не зарегистрирован ли уже пользователь
     const existingUser = await pool.query(
-      'SELECT * FROM users WHERE telegram_id = $1 AND cancelled_at IS NULL',
+      'SELECT * FROM users WHERE telegram_id = $1',
       [telegram_id]
     );
     
     if (existingUser.rows.length > 0) {
-      return res.status(400).json({ 
-        error: 'Пользователь уже зарегистрирован',
-        existingUser: existingUser.rows[0]
-      });
+      const user = existingUser.rows[0];
+      
+      // Если пользователь уже активен (не отменен)
+      if (!user.cancelled_at) {
+        return res.status(400).json({ 
+          error: 'Пользователь уже зарегистрирован',
+          existingUser: user
+        });
+      }
+      
+      // Если пользователь отменен - обновляем его данные и снимаем отмену
+      console.log('Обновляем отмененного пользователя:', user.id);
+      const updateResult = await pool.query(
+        `UPDATE users SET 
+          full_name = $1, 
+          email = $2, 
+          phone = $3, 
+          city = $4, 
+          church_name = $5, 
+          need_accommodation = $6, 
+          comments = $7, 
+          telegram_username = $8,
+          cancelled_at = NULL,
+          registration_date = NOW()
+         WHERE id = $9 RETURNING *`,
+        [full_name, email, phone, city, church_name, need_accommodation ?? false, comments, telegram_username, user.id]
+      );
+      
+      console.log('Пользователь успешно обновлен и активирован:', updateResult.rows[0]);
+      res.json({ success: true, user: updateResult.rows[0], reactivated: true });
+      return;
     }
     
     const result = await pool.query(
