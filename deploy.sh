@@ -106,23 +106,17 @@ EOF
 log "Обновляем конфигурацию для продакшена..."
 sed -i 's/version: .*/# version removed for docker-compose v2/' docker-compose.yaml
 
-# Создание nginx конфигурации для проксирования с путями и HTTPS
-log "Создаём nginx конфигурацию с путями и HTTPS..."
-cat > nginx.conf << EOF
-# HTTP redirect to HTTPS
+# Создание ВРЕМЕННОЙ nginx конфигурации БЕЗ SSL для запуска приложений
+log "Создаём временную nginx конфигурацию БЕЗ SSL..."
+cat > nginx-temp.conf << EOF
+# Временная конфигурация без SSL для запуска приложений
 server {
     listen 80;
     server_name $DOMAIN;
-    return 301 https://\$host\$request_uri;
-}
-
-# Main HTTPS server with path-based routing
-server {
-    listen 443 ssl;
-    server_name $DOMAIN;
-    ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
-    include ssl-params.conf;
+    
+    # Логи
+    access_log /var/log/nginx/$PROJECT_NAME.access.log;
+    error_log /var/log/nginx/$PROJECT_NAME.error.log;
     
     # Admin Panel - /admin
     location /admin {
@@ -161,46 +155,24 @@ server {
         proxy_cache_bypass \$http_upgrade;
         proxy_redirect off;
     }
+    
+    # Безопасность
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer-when-downgrade" always;
 }
 EOF
 
-# Создаём ssl-params.conf с безопасными настройками
-cat > ssl-params.conf << EOF
-ssl_protocols TLSv1.2 TLSv1.3;
-ssl_prefer_server_ciphers on;
-ssl_ciphers "EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH";
-ssl_ecdh_curve secp384r1;
-ssl_session_cache shared:SSL:10m;
-ssl_session_tickets off;
-ssl_stapling on;
-ssl_stapling_verify on;
-resolver 8.8.8.8 8.8.4.4 valid=300s;
-resolver_timeout 5s;
-add_header Strict-Transport-Security "max-age=63072000; includeSubdomains; preload";
-add_header X-Frame-Options DENY;
-add_header X-Content-Type-Options nosniff;
-add_header X-XSS-Protection "1; mode=block";
-add_header Referrer-Policy "no-referrer-when-downgrade";
-add_header Content-Security-Policy "default-src 'self'";
-EOF
-
-# Установка и настройка nginx
-log "Устанавливаем и настраиваем nginx..."
+# Установка и настройка nginx с временной конфигурацией
+log "Устанавливаем и настраиваем nginx с временной конфигурацией..."
 sudo apt-get install -y nginx
-sudo cp nginx.conf /etc/nginx/sites-available/$PROJECT_NAME
-sudo cp ssl-params.conf /etc/nginx/ssl-params.conf
+sudo cp nginx-temp.conf /etc/nginx/sites-available/$PROJECT_NAME
 sudo ln -sf /etc/nginx/sites-available/$PROJECT_NAME /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t
 sudo systemctl restart nginx
 sudo systemctl enable nginx
-
-# Настройка HTTPS через certbot
-if [ "$DOMAIN" != "localhost" ]; then
-  log "Устанавливаем certbot и настраиваем HTTPS для $DOMAIN..."
-  sudo apt-get install -y certbot python3-certbot-nginx
-  sudo certbot --nginx --non-interactive --agree-tos --redirect -m admin@$DOMAIN -d $DOMAIN || warn "Certbot завершился с ошибкой, проверьте домен и DNS-записи."
-fi
 
 # Настройка firewall
 log "Настраиваем firewall..."
@@ -223,14 +195,11 @@ fi
 # Остановка и удаление всех контейнеров и сетей Docker
 log "Останавливаю и удаляю все контейнеры и сети Docker..."
 docker-compose down -v --remove-orphans || true
-
 docker container prune -f || true
 docker network prune -f || true
 
 # Сборка и запуск Docker контейнеров
 log "Собираем и запускаем Docker контейнеры..."
-# Данные Postgres сохраняются между пересборками благодаря volume pgdata
-# (см. docker-compose.yaml: pgdata:/var/lib/postgresql/data)
 docker-compose build --no-cache
 docker-compose up -d
 
@@ -241,6 +210,72 @@ sleep 30
 # Проверка статуса сервисов
 log "Проверяем статус сервисов..."
 docker-compose ps
+
+# Проверка доступности сервисов по HTTP
+log "Проверяем доступность сервисов по HTTP..."
+sleep 10
+
+if curl -f http://localhost:5174 > /dev/null 2>&1; then
+    log "✅ Telegram WebApp доступен на http://$DOMAIN"
+else
+    warn "⚠️ Telegram WebApp недоступен"
+fi
+
+if curl -f http://localhost:5173 > /dev/null 2>&1; then
+    log "✅ Admin Panel доступен на http://$DOMAIN/admin"
+else
+    warn "⚠️ Admin Panel недоступен"
+fi
+
+if curl -f http://localhost:3000 > /dev/null 2>&1; then
+    log "✅ API доступен на http://$DOMAIN/api"
+else
+    warn "⚠️ API недоступен"
+fi
+
+# Настройка HTTPS через certbot (только после запуска приложений)
+if [ "$DOMAIN" != "localhost" ]; then
+    log "Устанавливаем certbot и настраиваем HTTPS для $DOMAIN..."
+    sudo apt-get install -y certbot python3-certbot-nginx
+    
+    # Получаем SSL сертификат
+    log "Получаем SSL сертификат..."
+    if sudo certbot --nginx --non-interactive --agree-tos --redirect -m admin@$DOMAIN -d $DOMAIN; then
+        log "✅ SSL сертификат успешно получен и настроен"
+        
+        # Создаём ssl-params.conf с безопасными настройками
+        cat > ssl-params.conf << EOF
+ssl_protocols TLSv1.2 TLSv1.3;
+ssl_prefer_server_ciphers on;
+ssl_ciphers "EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH";
+ssl_ecdh_curve secp384r1;
+ssl_session_cache shared:SSL:10m;
+ssl_session_tickets off;
+ssl_stapling on;
+ssl_stapling_verify on;
+resolver 8.8.8.8 8.8.4.4 valid=300s;
+resolver_timeout 5s;
+add_header Strict-Transport-Security "max-age=63072000; includeSubdomains; preload";
+add_header X-Frame-Options DENY;
+add_header X-Content-Type-Options nosniff;
+add_header X-XSS-Protection "1; mode=block";
+add_header Referrer-Policy "no-referrer-when-downgrade";
+add_header Content-Security-Policy "default-src 'self'";
+EOF
+        sudo cp ssl-params.conf /etc/nginx/ssl-params.conf
+        
+        # Перезапускаем nginx с SSL
+        sudo nginx -t
+        sudo systemctl restart nginx
+        
+        log "✅ HTTPS настроен и активен"
+    else
+        warn "⚠️ Не удалось получить SSL сертификат. Проверьте домен и DNS-записи."
+        log "Приложение работает по HTTP: http://$DOMAIN"
+    fi
+else
+    log "Домен localhost - пропускаем настройку SSL"
+fi
 
 # Создание systemd сервиса для автозапуска
 log "Создаём systemd сервис для автозапуска..."
@@ -315,23 +350,28 @@ sudo cp manage.sh /usr/local/bin/event-registration-manage
 log "Выполняем финальную проверку..."
 sleep 10
 
-# Проверка доступности сервисов
-log "Проверяем доступность сервисов..."
+# Проверка доступности сервисов (HTTP или HTTPS)
+log "Проверяем финальную доступность сервисов..."
 
-if curl -f http://localhost:5174 > /dev/null 2>&1; then
-    log "✅ Telegram WebApp доступен на https://$DOMAIN"
+PROTOCOL="http"
+if [ "$DOMAIN" != "localhost" ] && sudo test -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem"; then
+    PROTOCOL="https"
+fi
+
+if curl -f $PROTOCOL://localhost:5174 > /dev/null 2>&1; then
+    log "✅ Telegram WebApp доступен на $PROTOCOL://$DOMAIN"
 else
     warn "⚠️ Telegram WebApp недоступен"
 fi
 
-if curl -f http://localhost:5173 > /dev/null 2>&1; then
-    log "✅ Admin Panel доступен на https://$DOMAIN/admin"
+if curl -f $PROTOCOL://localhost:5173 > /dev/null 2>&1; then
+    log "✅ Admin Panel доступен на $PROTOCOL://$DOMAIN/admin"
 else
     warn "⚠️ Admin Panel недоступен"
 fi
 
-if curl -f http://localhost:3000 > /dev/null 2>&1; then
-    log "✅ API доступен на https://$DOMAIN/api"
+if curl -f $PROTOCOL://localhost:3000 > /dev/null 2>&1; then
+    log "✅ API доступен на $PROTOCOL://$DOMAIN/api"
 else
     warn "⚠️ API недоступен"
 fi
@@ -341,9 +381,9 @@ log "🎉 Развёртывание завершено!"
 echo ""
 echo "🔧 Информация о развёртывании:"
 echo "   • Проект: /opt/$PROJECT_NAME"
-echo "   • Telegram WebApp: https://$DOMAIN"
-echo "   • Admin Panel: https://$DOMAIN/admin"
-echo "   • API: https://$DOMAIN/api"
+echo "   • Telegram WebApp: $PROTOCOL://$DOMAIN"
+echo "   • Admin Panel: $PROTOCOL://$DOMAIN/admin"
+echo "   • API: $PROTOCOL://$DOMAIN/api"
 echo ""
 echo "🔧 Управление:"
 echo "   • Статус: event-registration-manage status"
@@ -352,7 +392,11 @@ echo "   • Перезапуск: event-registration-manage restart"
 echo "   • Обновление: event-registration-manage update"
 echo ""
 echo "📝 Следующие шаги:"
-echo "   1. Проверьте SSL сертификат (Let's Encrypt)"
+if [ "$PROTOCOL" = "https" ]; then
+    echo "   ✅ SSL сертификат настроен"
+else
+    echo "   ⚠️ SSL сертификат не настроен. Проверьте домен и DNS-записи"
+fi
 echo "   2. Обновите BOT_TOKEN в .env если нужно"
 echo "   3. Протестируйте бота в Telegram"
 echo ""
