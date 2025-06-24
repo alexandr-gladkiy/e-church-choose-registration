@@ -64,50 +64,6 @@
           <div v-if="errors.fullName" class="error-message">{{ errors.fullName }}</div>
         </div>
 
-        <!-- Поля Telegram - всегда видны для тестирования -->
-        <div class="telegram-fields">
-          <div class="form-group">
-            <label for="telegramUsername">Telegram Username *</label>
-            <input
-              type="text" 
-              id="telegramUsername"
-              v-model="form.telegramUsername"
-              :class="{ 'error': errors.telegramUsername }"
-              placeholder="@username"
-              required
-            >
-            <div v-if="errors.telegramUsername" class="error-message">{{ errors.telegramUsername }}</div>
-          </div>
-
-          <div class="form-group">
-            <label for="telegramId">Telegram ID *</label>
-            <input
-              type="number" 
-              id="telegramId"
-              v-model="form.telegramId"
-              :class="{ 'error': errors.telegramId }"
-              placeholder="123456789"
-              required
-            >
-            <div v-if="errors.telegramId" class="error-message">{{ errors.telegramId }}</div>
-          </div>
-          <div class="test-hint" style="margin-bottom: 10px; color: #888; font-size: 0.95em;">
-            Для тестирования: вы можете изменить эти поля вручную или передать значения через параметры URL.<br>
-            Например: <code>?test_user_id=5555&test_username=vasya</code>
-          </div>
-        </div>
-
-        <!-- Информация о Telegram пользователе в WebApp -->
-        <div v-if="isWebApp && telegramUser" class="telegram-info">
-          <div class="info-card">
-            <h4>📱 Данные Telegram</h4>
-            <p><strong>ID:</strong> {{ telegramUser.id }}</p>
-            <p v-if="telegramUser.username"><strong>Username:</strong> @{{ telegramUser.username }}</p>
-            <p v-if="telegramUser.first_name"><strong>Имя:</strong> {{ telegramUser.first_name }}</p>
-            <p v-if="telegramUser.last_name"><strong>Фамилия:</strong> {{ telegramUser.last_name }}</p>
-          </div>
-        </div>
-
         <div class="form-group">
           <label for="city">Город *</label>
           <div class="city-input-container">
@@ -271,18 +227,14 @@ export default {
       phone: '',
       comments: '',
       needAccommodation: false,
-      terms: false,
-      telegramUsername: '',
-      telegramId: ''
+      terms: false
     })
 
     const errors = reactive({
       fullName: '',
       city: '',
       churchName: '',
-      terms: '',
-      telegramUsername: '',
-      telegramId: ''
+      terms: ''
     })
     
     // Форматирование даты
@@ -394,23 +346,6 @@ export default {
         isValid = false
       }
       
-      // Валидация Telegram полей (всегда проверяем)
-      if (!form.telegramUsername.trim()) {
-        errors.telegramUsername = 'Поле "Telegram Username" обязательно для заполнения'
-        isValid = false
-      } else if (!form.telegramUsername.startsWith('@')) {
-        errors.telegramUsername = 'Username должен начинаться с @'
-        isValid = false
-      }
-      
-      if (!form.telegramId) {
-        errors.telegramId = 'Поле "Telegram ID" обязательно для заполнения'
-        isValid = false
-      } else if (!Number.isInteger(Number(form.telegramId)) || Number(form.telegramId) <= 0) {
-        errors.telegramId = 'Telegram ID должен быть положительным числом'
-        isValid = false
-      }
-      
       // Валидация согласия с условиями
       if (!form.terms) {
         errors.terms = 'Необходимо согласие с условиями участия'
@@ -446,19 +381,10 @@ export default {
           phone: form.phone
         }
         
-        // Добавляем Telegram данные в зависимости от контекста
-        if (isWebApp.value && props.telegramUser) {
-          // В WebApp используем данные из Telegram
+        // Добавляем Telegram данные из props
+        if (props.telegramUser) {
           submitData.telegram_username = props.telegramUser.username
           submitData.telegram_id = props.telegramUser.id
-        } else if (props.telegramUser) {
-          // В браузере используем данные из формы или из props
-          submitData.telegram_username = form.telegramUsername.replace('@', '') || props.telegramUser.username
-          submitData.telegram_id = form.telegramId || props.telegramUser.id
-        } else {
-          // Fallback - используем данные из формы
-          submitData.telegram_username = form.telegramUsername.replace('@', '')
-          submitData.telegram_id = form.telegramId
         }
         
         console.log('Отправляемые данные:', submitData)
@@ -531,10 +457,9 @@ export default {
           form.fullName += ' ' + props.telegramUser.last_name
         }
         
-        // Заполняем поля Telegram для тестирования в браузере
-        if (!isWebApp.value) {
-          form.telegramUsername = props.telegramUser.username ? `@${props.telegramUser.username}` : ''
-          form.telegramId = props.telegramUser.id || ''
+        // Автозаполнение номера телефона из Telegram WebApp
+        if (isWebApp.value && window.Telegram?.WebApp?.initDataUnsafe?.user?.phone_number) {
+          form.phone = window.Telegram.WebApp.initDataUnsafe.user.phone_number
         }
         
         // Попытка автозаполнить форму по telegramId
@@ -549,7 +474,7 @@ export default {
               form.churchName = u.church_name || ''
               form.comments = u.comments || ''
               form.needAccommodation = u.need_accommodation || false
-              form.phone = u.phone || ''
+              form.phone = u.phone || form.phone // Сохраняем телефон из Telegram если есть
               existingUser.value = u
             }
           }
