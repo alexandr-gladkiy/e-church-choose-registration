@@ -15,6 +15,7 @@
       <RegistrationForm 
         v-else-if="browserAccessEnabled || isTelegramWebView"
         :telegram-user="telegramUser"
+        @telegram-user-received="handleTelegramUserReceived"
       />
       <div v-else class="browser-blocked">
         <h2>Регистрация доступна только через Telegram</h2>
@@ -120,6 +121,11 @@ export default {
       }
     }
 
+    const handleTelegramUserReceived = (user) => {
+      telegramUser.value = user
+      console.log('Telegram WebApp user data:', telegramUser.value)
+    }
+
     onMounted(async () => {
       detectWebApp()
       checkAdminStatus()
@@ -185,7 +191,8 @@ export default {
       refreshSettings,
       browserAccessEnabled,
       isTelegramWebView,
-      loading
+      loading,
+      handleTelegramUserReceived
     }
   }
 }

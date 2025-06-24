@@ -119,7 +119,7 @@ server {
     error_log /var/log/nginx/$PROJECT_NAME.error.log;
     
     # Admin Panel - /admin
-    location /admin {
+    location /admin/ {
         proxy_pass http://localhost:5173/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
@@ -130,6 +130,11 @@ server {
         proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_cache_bypass \$http_upgrade;
         proxy_redirect off;
+    }
+    
+    # Redirect /admin to /admin/
+    location = /admin {
+        return 301 \$scheme://\$host/admin/;
     }
     
     # API - /api
