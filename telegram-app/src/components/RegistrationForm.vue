@@ -538,98 +538,71 @@ export default {
       loadRegistrationInfo()
       
       // Автозаполнение данных из Telegram
-      if (props.telegramUser) {
-        console.log('Telegram user data:', props.telegramUser)
-        
-        // Попытка найти пользователя в базе данных
-        try {
-          console.log('Пытаемся загрузить данные пользователя для telegramId:', props.telegramUser.id)
-          const resp = await api.get(`/api/users?telegramId=${props.telegramUser.id}`)
+      try {
+        const telegramId = props.telegramUser?.id;
+        if (!telegramId) {
+          console.warn('Нет telegramId для поиска пользователя');
+        } else {
+          const resp = await api.get(`/api/users?telegramId=${telegramId}`)
           console.log('Ответ API для автозаполнения:', resp.data)
-          
-          if (resp.data && Array.isArray(resp.data) && resp.data.length > 0) {
-            const u = resp.data[0]
-            console.log('Найден пользователь в базе:', u)
-            
+
+          // Корректно обрабатываем массив: ищем пользователя с нужным telegramId
+          let u = null;
+          if (Array.isArray(resp.data)) {
+            u = resp.data.find(user => String(user.telegram_id) === String(telegramId));
+          }
+
+          if (u) {
+            // Логируем все данные пользователя из базы
+            console.log('Данные пользователя из базы:', u);
             // Если пользователь есть в базе - используем данные из базы
-            console.log('Пользователь найден в базе, заполняем форму данными из базы...')
-            console.log('До заполнения - fullName:', form.fullName)
-            console.log('До заполнения - churchName:', form.churchName)
-            console.log('До заполнения - phone:', form.phone)
-            
             form.fullName = u.full_name || ''
             form.city = u.city || ''
             form.churchName = u.church_name || ''
             form.comments = u.comments || ''
             form.needAccommodation = u.need_accommodation || false
             form.phone = u.phone || ''
-            
+            // Логируем номер телефона
+            console.log('Телефон из базы:', u.phone);
             // Если пользователь не отменен - показываем его как существующего
             if (!u.cancelled_at) {
               existingUser.value = u
-              console.log('Пользователь активен, показываем как существующего')
+              existingUserMessage.value = ''
+              console.log('existingUser для панели:', existingUser.value);
             } else {
-              console.log('Пользователь отменен, но данные загружены для редактирования')
-              // Показываем сообщение о том, что регистрация была отменена
+              existingUser.value = null
               existingUserMessage.value = 'Ваша предыдущая регистрация была отменена. Вы можете зарегистрироваться повторно, заполнив форму ниже.'
             }
-            
-            console.log('После заполнения из базы - fullName:', form.fullName)
-            console.log('После заполнения из базы - churchName:', form.churchName)
-            console.log('После заполнения из базы - phone:', form.phone)
-            console.log('После заполнения из базы - city:', form.city)
           } else {
-            console.log('Пользователь не найден в базе данных, автозаполняем из Telegram')
-            
             // Если пользователя нет в базе - автозаполняем из Telegram
-            // Автозаполнение имени из Telegram
-            console.log('Автозаполнение имени из Telegram...')
-            console.log('Telegram first_name:', props.telegramUser.first_name)
-            console.log('Telegram last_name:', props.telegramUser.last_name)
-            
             if (props.telegramUser.first_name) {
               form.fullName = props.telegramUser.first_name
               if (props.telegramUser.last_name) {
                 form.fullName += ' ' + props.telegramUser.last_name
               }
-              console.log('Имя автозаполнено из Telegram:', form.fullName)
-            } else {
-              console.log('Имя из Telegram пустое, не автозаполняем')
             }
-            
             // Автозаполнение номера телефона из Telegram WebApp
-            console.log('Проверяем автозаполнение телефона из WebApp...')
-            console.log('isWebApp:', isWebApp.value)
-            console.log('window.Telegram?.WebApp?.initDataUnsafe?.user?.phone_number:', window.Telegram?.WebApp?.initDataUnsafe?.user?.phone_number)
-            
             if (isWebApp.value && window.Telegram?.WebApp?.initDataUnsafe?.user?.phone_number) {
               form.phone = window.Telegram.WebApp.initDataUnsafe.user.phone_number
-              console.log('Телефон автозаполнен из WebApp:', form.phone)
-            } else {
-              console.log('Телефон не автозаполнен (не WebApp или нет доступа к номеру)')
             }
-          }
-        } catch (e) {
-          console.error('Ошибка при загрузке данных пользователя:', e)
-          console.log('Ошибка запроса, автозаполняем из Telegram:', e.message)
-          
-          // При ошибке API - автозаполняем из Telegram
-          // Автозаполнение имени из Telegram
-          console.log('Автозаполнение имени из Telegram (при ошибке API)...')
-          if (props.telegramUser.first_name) {
-            form.fullName = props.telegramUser.first_name
-            if (props.telegramUser.last_name) {
-              form.fullName += ' ' + props.telegramUser.last_name
-            }
-            console.log('Имя автозаполнено из Telegram:', form.fullName)
-          }
-          
-          // Автозаполнение номера телефона из Telegram WebApp
-          if (isWebApp.value && window.Telegram?.WebApp?.initDataUnsafe?.user?.phone_number) {
-            form.phone = window.Telegram.WebApp.initDataUnsafe.user.phone_number
-            console.log('Телефон автозаполнен из WebApp:', form.phone)
+            existingUser.value = null
+            existingUserMessage.value = ''
           }
         }
+      } catch (e) {
+        console.error('Ошибка при загрузке данных пользователя:', e)
+        // При ошибке API - автозаполняем из Telegram
+        if (props.telegramUser.first_name) {
+          form.fullName = props.telegramUser.first_name
+          if (props.telegramUser.last_name) {
+            form.fullName += ' ' + props.telegramUser.last_name
+          }
+        }
+        if (isWebApp.value && window.Telegram?.WebApp?.initDataUnsafe?.user?.phone_number) {
+          form.phone = window.Telegram.WebApp.initDataUnsafe.user.phone_number
+        }
+        existingUser.value = null
+        existingUserMessage.value = ''
       }
     })
     
