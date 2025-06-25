@@ -10,42 +10,34 @@
 
     <div class="user-info-block">
       <h3 class="user-info-title">Ваши данные регистрации</h3>
-      <div class="user-info-grid">
-        <div class="info-row">
-          <div class="info-label">Ф. И. О.:</div>
-          <div class="info-value">{{ user.fullName }}</div>
+      <div class="user-info-content">
+        <div class="info-section">
+          <h4 class="info-section-title">Основная информация</h4>
+          <p class="info-text"><strong>Ф.И.О.:</strong> {{ user.full_name }}</p>
+          <p class="info-text"><strong>Город:</strong> {{ user.city }}</p>
+          <p class="info-text"><strong>Церковь:</strong> {{ user.church_name }}</p>
+          <p v-if="user.phone" class="info-text"><strong>Телефон:</strong> {{ user.phone }}</p>
         </div>
-        <div class="info-row">
-          <div class="info-label">Номер телефона для связи:</div>
-          <div class="info-value">{{ user.phoneNumber }}</div>
+
+        <div v-if="user.comments" class="info-section">
+          <h4 class="info-section-title">Дополнительная информация</h4>
+          <p class="info-text"><strong>Комментарии:</strong> {{ user.comments }}</p>
         </div>
-        <div class="info-row">
-          <div class="info-label">Город:</div>
-          <div class="info-value">{{ user.city }}</div>
-        </div>
-        <div class="info-row">
-          <div class="info-label">Название Церкви:</div>
-          <div class="info-value">{{ user.churchName }}</div>
-        </div>
-        <div v-if="user.comments" class="info-row">
-          <div class="info-label">Комментарии:</div>
-          <div class="info-value">{{ user.comments }}</div>
-        </div>
-        <div class="info-row">
-          <div class="info-label">Нужно расселение:</div>
-          <div class="info-value">
-            <span :class="user.needAccommodation ? 'yes' : 'no'">
-              {{ user.needAccommodation ? 'Да' : 'Нет' }}
+
+        <div class="info-section">
+          <h4 class="info-section-title">Детали регистрации</h4>
+          <p class="info-text">
+            <strong>Расселение:</strong> 
+            <span :class="user.need_accommodation ? 'status-yes' : 'status-no'">
+              {{ user.need_accommodation ? 'Нужно' : 'Не нужно' }}
             </span>
-          </div>
-        </div>
-        <div v-if="user.telegramUsername" class="info-row">
-          <div class="info-label">Telegram:</div>
-          <div class="info-value">@{{ user.telegramUsername }}</div>
-        </div>
-        <div class="info-row">
-          <div class="info-label">Дата регистрации:</div>
-          <div class="info-value">{{ formatDate(user.registrationDate) }}</div>
+          </p>
+          <p v-if="user.telegram_username" class="info-text">
+            <strong>Telegram:</strong> @{{ user.telegram_username }}
+          </p>
+          <p class="info-text">
+            <strong>Дата регистрации:</strong> {{ formatDate(user.registration_date) }}
+          </p>
         </div>
       </div>
     </div>
@@ -162,47 +154,50 @@ export default {
   margin: 0 0 12px 0;
 }
 
-.user-info-grid {
+.user-info-content {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 24px;
 }
 
-.info-row {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  background: rgba(102,126,234,0.1);
-  padding: 20px;
+.info-section {
+  background: rgba(102,126,234,0.05);
+  border: 1px solid rgba(102,126,234,0.1);
   border-radius: 12px;
-  border: 1px solid rgba(102,126,234,0.2);
+  padding: 20px;
   width: 100%;
 }
 
-.info-label {
+.info-section-title {
   color: #333;
-  font-size: 1.05rem;
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin: 0 0 16px 0;
+  padding-bottom: 8px;
+  border-bottom: 2px solid rgba(102,126,234,0.2);
+}
+
+.info-text {
+  color: #555;
+  font-size: 1rem;
+  line-height: 1.6;
+  margin: 8px 0;
+}
+
+.info-text strong {
+  color: #333;
   font-weight: 600;
-  min-width: 120px;
 }
 
-.info-value {
-  color: #667eea;
-  font-size: 1.1rem;
-  font-weight: 700;
-  flex: 1;
-}
-
-.info-value .yes {
+.info-text .status-yes {
   color: #28a745;
-  font-weight: 700;
+  font-weight: 600;
 }
 
-.info-value .no {
-  color: #dc3545;
-  font-weight: 700;
+.info-text .status-no {
+  color: #6c757d;
+  font-weight: 600;
 }
 
 .actions-block {
@@ -290,6 +285,19 @@ export default {
   
   .user-info-title {
     font-size: 1.3rem;
+  }
+  
+  .info-section {
+    padding: 16px;
+  }
+  
+  .info-section-title {
+    font-size: 1.1rem;
+    margin-bottom: 12px;
+  }
+  
+  .info-text {
+    font-size: 0.95rem;
   }
   
   .cancel-btn {
