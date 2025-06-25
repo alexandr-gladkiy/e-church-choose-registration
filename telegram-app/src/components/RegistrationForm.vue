@@ -540,59 +540,46 @@ export default {
       // Автозаполнение данных из Telegram
       try {
         const telegramId = props.telegramUser?.id;
-        if (!telegramId) {
-          console.warn('Нет telegramId для поиска пользователя');
-        } else {
+        let userFound = false;
+        if (telegramId) {
           const resp = await api.get(`/api/users?telegramId=${telegramId}`)
           console.log('Ответ API для автозаполнения:', resp.data)
 
-          // Корректно обрабатываем массив: ищем пользователя с нужным telegramId
           let u = null;
           if (Array.isArray(resp.data)) {
             u = resp.data.find(user => String(user.telegram_id) === String(telegramId));
           }
 
-          if (u) {
-            // Логируем все данные пользователя из базы
-            console.log('Данные пользователя из базы:', u);
-            // Если пользователь есть в базе - используем данные из базы
-            form.fullName = u.full_name || ''
-            form.city = u.city || ''
-            form.churchName = u.church_name || ''
-            form.comments = u.comments || ''
-            form.needAccommodation = u.need_accommodation || false
-            form.phone = u.phone || ''
-            // Логируем номер телефона
-            console.log('Телефон из базы:', u.phone);
-            // Если пользователь не отменен - показываем его как существующего
-            if (!u.cancelled_at) {
-              existingUser.value = u
-              existingUserMessage.value = ''
-              console.log('existingUser для панели:', existingUser.value);
-            } else {
-              existingUser.value = null
-              existingUserMessage.value = 'Ваша предыдущая регистрация была отменена. Вы можете зарегистрироваться повторно, заполнив форму ниже.'
-            }
-          } else {
-            // Если пользователя нет в базе - автозаполняем из Telegram
-            if (props.telegramUser.first_name) {
-              form.fullName = props.telegramUser.first_name
-              if (props.telegramUser.last_name) {
-                form.fullName += ' ' + props.telegramUser.last_name
-              }
-            }
-            // Автозаполнение номера телефона из Telegram WebApp
-            if (isWebApp.value && window.Telegram?.WebApp?.initDataUnsafe?.user?.phone_number) {
-              form.phone = window.Telegram.WebApp.initDataUnsafe.user.phone_number
-            }
-            existingUser.value = null
+          if (u && !u.cancelled_at) {
+            // Пользователь найден и активен — показываем блок
+            existingUser.value = u
             existingUserMessage.value = ''
+            userFound = true
+            return // Не перезаписываем форму, не сбрасываем existingUser
+          } else if (u && u.cancelled_at) {
+            existingUser.value = null
+            existingUserMessage.value = 'Ваша предыдущая регистрация была отменена. Вы можете зарегистрироваться повторно, заполнив форму ниже.'
+            userFound = true
           }
+        }
+        // Если пользователя нет в базе — автозаполняем из Telegram
+        if (!userFound && props.telegramUser) {
+          if (props.telegramUser.first_name) {
+            form.fullName = props.telegramUser.first_name
+            if (props.telegramUser.last_name) {
+              form.fullName += ' ' + props.telegramUser.last_name
+            }
+          }
+          if (isWebApp.value && window.Telegram?.WebApp?.initDataUnsafe?.user?.phone_number) {
+            form.phone = window.Telegram.WebApp.initDataUnsafe.user.phone_number
+          }
+          existingUser.value = null
+          existingUserMessage.value = ''
         }
       } catch (e) {
         console.error('Ошибка при загрузке данных пользователя:', e)
-        // При ошибке API - автозаполняем из Telegram
-        if (props.telegramUser.first_name) {
+        // При ошибке API — автозаполняем из Telegram
+        if (props.telegramUser && props.telegramUser.first_name) {
           form.fullName = props.telegramUser.first_name
           if (props.telegramUser.last_name) {
             form.fullName += ' ' + props.telegramUser.last_name
