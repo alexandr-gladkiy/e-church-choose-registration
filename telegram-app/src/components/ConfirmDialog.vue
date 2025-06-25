@@ -13,7 +13,7 @@
             <strong>Имя:</strong> {{ registrationData.fullName }}
           </div>
           <div class="summary-item">
-            <strong>Телефон для связи:</strong> {{ registrationData.phoneNumber }}
+            <strong>Телефон для связи:</strong> {{ registrationData.phone }}
           </div>
           <div class="summary-item">
             <strong>Город:</strong> {{ registrationData.city }}
@@ -26,6 +26,12 @@
           </div>
           <div v-if="registrationData.comments" class="summary-item">
             <strong>Комментарии:</strong> {{ registrationData.comments }}
+          </div>
+          <div v-if="registrationData.telegram_id" class="summary-item">
+            <strong>Telegram ID:</strong> {{ registrationData.telegram_id }}
+          </div>
+          <div v-if="registrationData.telegram_username" class="summary-item">
+            <strong>Telegram:</strong> @{{ registrationData.telegram_username }}
           </div>
         </div>
       </div>

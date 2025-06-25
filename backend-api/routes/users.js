@@ -5,16 +5,20 @@ const router = express.Router();
 
 // Получить всех участников
 router.get('/', async (req, res) => {
-  const { telegramId } = req.query;
+  const { telegramId, telegramUsername } = req.query;
   
   if (telegramId) {
     // Поиск пользователя по telegramId
     const result = await pool.query('SELECT * FROM users WHERE telegram_id = $1 ORDER BY registration_date DESC', [telegramId]);
-    res.json(result.rows);
+    return res.json(result.rows);
+  } else if (telegramUsername) {
+    // Поиск пользователя по telegramUsername
+    const result = await pool.query('SELECT * FROM users WHERE telegram_username = $1 ORDER BY registration_date DESC', [telegramUsername]);
+    return res.json(result.rows);
   } else {
     // Получить всех пользователей
     const result = await pool.query('SELECT * FROM users ORDER BY registration_date DESC');
-    res.json(result.rows);
+    return res.json(result.rows);
   }
 });
 
@@ -31,9 +35,9 @@ router.post('/', async (req, res) => {
   console.log('Получен POST запрос на /api/users:', req.body);
   const { full_name, email, phone, city, church_name, need_accommodation, comments, telegram_id, telegram_username } = req.body;
   
-  if (!full_name || !city || !church_name || !telegram_id || !telegram_username) {
+  if (!full_name || !city || !church_name || (!telegram_id && !telegram_username)) {
     console.log('Ошибка валидации:', { full_name, city, church_name, telegram_id, telegram_username });
-    return res.status(400).json({ error: 'Обязательные поля: ФИО, город, церковь, telegramId, telegramUsername' });
+    return res.status(400).json({ error: 'Обязательные поля: ФИО, город, церковь, и хотя бы один из telegramId или telegramUsername' });
   }
   
   try {
@@ -62,24 +66,26 @@ router.post('/', async (req, res) => {
     }
     
     // Проверяем, не зарегистрирован ли уже пользователь
-    const existingUser = await pool.query(
-      'SELECT * FROM users WHERE telegram_id = $1',
-      [telegram_id]
-    );
+    let existingUser = null;
+    if (telegram_id) {
+      const byId = await pool.query('SELECT * FROM users WHERE telegram_id = $1', [telegram_id]);
+      if (byId.rows.length > 0) existingUser = byId.rows[0];
+    }
+    if (!existingUser && telegram_username) {
+      const byUsername = await pool.query('SELECT * FROM users WHERE telegram_username = $1', [telegram_username]);
+      if (byUsername.rows.length > 0) existingUser = byUsername.rows[0];
+    }
     
-    if (existingUser.rows.length > 0) {
-      const user = existingUser.rows[0];
-      
+    if (existingUser) {
       // Если пользователь уже активен (не отменен)
-      if (!user.cancelled_at) {
+      if (!existingUser.cancelled_at) {
         return res.status(400).json({ 
           error: 'Пользователь уже зарегистрирован',
-          existingUser: user
+          existingUser: existingUser
         });
       }
-      
       // Если пользователь отменен - обновляем его данные и снимаем отмену
-      console.log('Обновляем отмененного пользователя:', user.id);
+      console.log('Обновляем отмененного пользователя:', existingUser.id);
       const updateResult = await pool.query(
         `UPDATE users SET 
           full_name = $1, 
@@ -89,13 +95,13 @@ router.post('/', async (req, res) => {
           church_name = $5, 
           need_accommodation = $6, 
           comments = $7, 
-          telegram_username = $8,
+          telegram_id = $8,
+          telegram_username = $9,
           cancelled_at = NULL,
           registration_date = NOW()
-         WHERE id = $9 RETURNING *`,
-        [full_name, email, phone, city, church_name, need_accommodation ?? false, comments, telegram_username, user.id]
+         WHERE id = $10 RETURNING *`,
+        [full_name, email, phone, city, church_name, need_accommodation ?? false, comments, telegram_id, telegram_username, existingUser.id]
       );
-      
       console.log('Пользователь успешно обновлен и активирован:', updateResult.rows[0]);
       res.json({ success: true, user: updateResult.rows[0], reactivated: true });
       return;
@@ -111,7 +117,7 @@ router.post('/', async (req, res) => {
   } catch (e) {
     console.error('Ошибка при добавлении пользователя:', e);
     if (e.code === '23505') {
-      return res.status(400).json({ error: 'Пользователь с таким telegramId уже существует' });
+      return res.status(400).json({ error: 'Пользователь с таким telegramId или telegramUsername уже существует' });
     }
     res.status(500).json({ error: 'Ошибка добавления: ' + e.message });
   }
