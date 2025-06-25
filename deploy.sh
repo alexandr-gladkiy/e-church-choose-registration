@@ -106,6 +106,11 @@ EOF
 log "Обновляем конфигурацию для продакшена..."
 sed -i 's/version: .*/# version removed for docker-compose v2/' docker-compose.yaml
 
+# Удаляем старые конфиги nginx перед копированием новых
+log "Удаляем старые конфиги nginx..."
+sudo rm -f /etc/nginx/sites-enabled/$PROJECT_NAME
+sudo rm -f /etc/nginx/sites-available/$PROJECT_NAME
+
 # Создание ВРЕМЕННОЙ nginx конфигурации БЕЗ SSL для запуска приложений
 log "Создаём временную nginx конфигурацию БЕЗ SSL..."
 cat > nginx-temp.conf << EOF

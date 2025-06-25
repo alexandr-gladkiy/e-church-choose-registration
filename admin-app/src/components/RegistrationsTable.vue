@@ -12,6 +12,7 @@
           <th @click="sort('city')" style="cursor:pointer">Город <span v-if="sortBy==='city'">{{ sortDir==='asc' ? '▲' : '▼' }}</span></th>
           <th @click="sort('church_name')" style="cursor:pointer">Церковь <span v-if="sortBy==='church_name'">{{ sortDir==='asc' ? '▲' : '▼' }}</span></th>
           <th>Жилье</th>
+          <th>Telegram ID</th>
           <th>Telegram</th>
           <th @click="sort('registration_date')" style="cursor:pointer">Дата <span v-if="sortBy==='registration_date'">{{ sortDir==='asc' ? '▲' : '▼' }}</span></th>
           <th>Отменён</th>
@@ -26,6 +27,7 @@
           <td>{{ user.city || '-' }}</td>
           <td>{{ user.church_name || '-' }}</td>
           <td>{{ user.need_accommodation ? 'Да' : 'Нет' }}</td>
+          <td>{{ user.telegram_id || '-' }}</td>
           <td>{{ user.telegram_username || '-' }}</td>
           <td>{{ user.registration_date ? new Date(user.registration_date).toLocaleDateString('ru-RU') : '-' }}</td>
           <td>{{ user.cancelled_at ? 'Да' : 'Нет' }}</td>
