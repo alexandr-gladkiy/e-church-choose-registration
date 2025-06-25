@@ -51,8 +51,7 @@ router.put('/', auth, async (req, res) => {
       is_open, 
       registration_start, 
       registration_deadline, 
-      max_participants,
-      browser_access_enabled 
+      max_participants
     } = req.body;
     
     const result = await pool.query(
@@ -60,11 +59,10 @@ router.put('/', auth, async (req, res) => {
        SET is_open = $1, 
            registration_start = $2, 
            registration_deadline = $3,
-           max_participants = $4,
-           browser_access_enabled = $5
+           max_participants = $4
        WHERE id = 1 
        RETURNING *`,
-      [is_open, registration_start, registration_deadline, max_participants, browser_access_enabled]
+      [is_open, registration_start, registration_deadline, max_participants]
     );
     
     // Получаем обновленную информацию о участниках

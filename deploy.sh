@@ -118,7 +118,12 @@ server {
     access_log /var/log/nginx/$PROJECT_NAME.access.log;
     error_log /var/log/nginx/$PROJECT_NAME.error.log;
     
-    # Admin Panel - /admin
+    # Admin Panel - redirect /admin to /admin/
+    location = /admin {
+        return 301 \$scheme://\$host/admin/;
+    }
+    
+    # Admin Panel - /admin/
     location /admin/ {
         proxy_pass http://localhost:5173/;
         proxy_http_version 1.1;
@@ -130,11 +135,13 @@ server {
         proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_cache_bypass \$http_upgrade;
         proxy_redirect off;
-    }
-    
-    # Redirect /admin to /admin/
-    location = /admin {
-        return 301 \$scheme://\$host/admin/;
+        
+        # Обработка статических файлов для admin-app
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+            proxy_pass http://localhost:5173;
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+        }
     }
     
     # API - /api
@@ -166,6 +173,80 @@ server {
     add_header X-XSS-Protection "1; mode=block" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "no-referrer-when-downgrade" always;
+}
+EOF
+
+# Создание ФИНАЛЬНОЙ nginx конфигурации С SSL
+log "Создаём финальную nginx конфигурацию С SSL..."
+cat > nginx-final.conf << EOF
+# HTTP redirect to HTTPS
+server {
+    listen 80;
+    server_name $DOMAIN;
+    return 301 https://\$host\$request_uri;
+}
+
+# Main HTTPS server with path-based routing
+server {
+    listen 443 ssl;
+    server_name $DOMAIN;
+    ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
+    include ssl-params.conf;
+    
+    # Логи
+    access_log /var/log/nginx/$PROJECT_NAME.access.log;
+    error_log /var/log/nginx/$PROJECT_NAME.error.log;
+    
+    # Admin Panel - redirect /admin to /admin/
+    location = /admin {
+        return 301 \$scheme://\$host/admin/;
+    }
+    
+    # Admin Panel - /admin/
+    location /admin/ {
+        proxy_pass http://localhost:5173/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_cache_bypass \$http_upgrade;
+        proxy_redirect off;
+        
+        # Обработка статических файлов для admin-app
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+            proxy_pass http://localhost:5173;
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+        }
+    }
+    
+    # API - /api
+    location /api {
+        proxy_pass http://localhost:3000/api;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+    
+    # Telegram WebApp - root path
+    location / {
+        proxy_pass http://localhost:5174/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_cache_bypass \$http_upgrade;
+        proxy_redirect off;
+    }
 }
 EOF
 
@@ -227,7 +308,7 @@ else
 fi
 
 if curl -f http://localhost:5173 > /dev/null 2>&1; then
-    log "✅ Admin Panel доступен на http://$DOMAIN/admin"
+    log "✅ Admin Panel доступен на http://$DOMAIN/admin/"
 else
     warn "⚠️ Admin Panel недоступен"
 fi
@@ -268,6 +349,10 @@ add_header Referrer-Policy "no-referrer-when-downgrade";
 add_header Content-Security-Policy "default-src 'self'";
 EOF
         sudo cp ssl-params.conf /etc/nginx/ssl-params.conf
+        
+        # Применяем финальную конфигурацию nginx с SSL
+        log "Применяем финальную конфигурацию nginx с SSL..."
+        sudo cp nginx-final.conf /etc/nginx/sites-available/$PROJECT_NAME
         
         # Перезапускаем nginx с SSL
         sudo nginx -t
@@ -370,7 +455,7 @@ else
 fi
 
 if curl -f $PROTOCOL://localhost:5173 > /dev/null 2>&1; then
-    log "✅ Admin Panel доступен на $PROTOCOL://$DOMAIN/admin"
+    log "✅ Admin Panel доступен на $PROTOCOL://$DOMAIN/admin/"
 else
     warn "⚠️ Admin Panel недоступен"
 fi
@@ -387,7 +472,7 @@ echo ""
 echo "🔧 Информация о развёртывании:"
 echo "   • Проект: /opt/$PROJECT_NAME"
 echo "   • Telegram WebApp: $PROTOCOL://$DOMAIN"
-echo "   • Admin Panel: $PROTOCOL://$DOMAIN/admin"
+echo "   • Admin Panel: $PROTOCOL://$DOMAIN/admin/"
 echo "   • API: $PROTOCOL://$DOMAIN/api"
 echo ""
 echo "🔧 Управление:"
@@ -406,45 +491,4 @@ echo "   2. Обновите BOT_TOKEN в .env если нужно"
 echo "   3. Протестируйте бота в Telegram"
 echo ""
 
-log "Скрипт развёртывания завершён успешно!"
-
-echo "🚀 Начинаем деплой приложения..."
-
-# Останавливаем все контейнеры
-echo "📦 Останавливаем контейнеры..."
-docker-compose down
-
-# Удаляем старые образы
-echo "🗑️ Удаляем старые образы..."
-docker-compose down --rmi all
-
-# Собираем новые образы
-echo "🔨 Собираем новые образы..."
-docker-compose build --no-cache
-
-# Запускаем nginx с временной конфигурацией (без SSL)
-echo "🌐 Запускаем nginx с временной конфигурацией..."
-cp nginx-temp.conf /etc/nginx/sites-available/choose.su
-ln -sf /etc/nginx/sites-available/choose.su /etc/nginx/sites-enabled/
-systemctl reload nginx
-
-# Запускаем все сервисы
-echo "🚀 Запускаем все сервисы..."
-docker-compose up -d
-
-# Ждем запуска сервисов
-echo "⏳ Ждем запуска сервисов..."
-sleep 30
-
-# Получаем SSL сертификаты
-echo "🔒 Получаем SSL сертификаты..."
-certbot --nginx -d choose.su --non-interactive --agree-tos --email admin@choose.su
-
-# Обновляем nginx конфигурацию с SSL
-echo "🔧 Обновляем nginx конфигурацию с SSL..."
-cp nginx-fixed.conf /etc/nginx/sites-available/choose.su
-systemctl reload nginx
-
-echo "✅ Деплой завершен!"
-echo "🌐 Сайт доступен по адресу: https://choose.su"
-echo "🔧 Админ панель: https://choose.su/admin/" 
+log "Скрипт развёртывания завершён успешно!" 
