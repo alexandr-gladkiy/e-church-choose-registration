@@ -32,7 +32,7 @@
               {{ user.need_accommodation ? 'Нужно' : 'Не нужно' }}
             </span>
           </p>
-          <p v-if="user.telegram_username" class="info-text">
+          <p v-if="user.telegram_username && user.telegram_username !== 'testuser'" class="info-text">
             <strong>Telegram:</strong> @{{ user.telegram_username }}
           </p>
           <p class="info-text">
