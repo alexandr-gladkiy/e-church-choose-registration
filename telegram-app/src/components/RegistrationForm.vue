@@ -40,13 +40,13 @@
     <div v-else-if="!registrationInfo?.is_full">
       <div v-if="existingUserMessage" class="existing-user-message">
         <div class="message-content">
-          <h3>Пользователь уже зарегистрирован</h3>
+          <h3>Информация о регистрации</h3>
           <p>{{ existingUserMessage }}</p>
           <div v-if="existingUser" class="existing-user-details">
-            <p><strong>Имя:</strong> {{ existingUser.fullName }}</p>
-            <p v-if="existingUser.email"><strong>Email:</strong> {{ existingUser.email }}</p>
-            <p v-if="existingUser.telegramUsername"><strong>Telegram:</strong> {{ existingUser.telegramUsername }}</p>
-            <p><strong>Дата регистрации:</strong> {{ formatDate(existingUser.registrationDate) }}</p>
+            <p><strong>Имя:</strong> {{ existingUser.full_name }}</p>
+            <p v-if="existingUser.phone"><strong>Телефон:</strong> {{ existingUser.phone }}</p>
+            <p v-if="existingUser.telegram_username"><strong>Telegram:</strong> @{{ existingUser.telegram_username }}</p>
+            <p><strong>Дата регистрации:</strong> {{ formatDate(existingUser.registration_date) }}</p>
           </div>
         </div>
       </div>
