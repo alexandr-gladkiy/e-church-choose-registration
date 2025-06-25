@@ -33,13 +33,12 @@ CREATE TABLE IF NOT EXISTS registration_settings (
     is_open BOOLEAN DEFAULT TRUE,
     registration_start TIMESTAMP,
     registration_deadline TIMESTAMP,
-    max_participants INTEGER DEFAULT NULL,
-    browser_access_enabled BOOLEAN DEFAULT FALSE
+    max_participants INTEGER DEFAULT NULL
 );
 
 -- Вставка дефолтных настроек (одна строка)
-INSERT INTO registration_settings (is_open, registration_start, registration_deadline, max_participants, browser_access_enabled)
-VALUES (TRUE, CURRENT_TIMESTAMP, NULL, NULL, FALSE)
+INSERT INTO registration_settings (is_open, registration_start, registration_deadline, max_participants)
+VALUES (TRUE, CURRENT_TIMESTAMP, NULL, NULL)
 ON CONFLICT DO NOTHING;
 
 -- Добавляем поле max_participants если его нет (для существующих баз)
@@ -48,10 +47,5 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
                    WHERE table_name = 'registration_settings' AND column_name = 'max_participants') THEN
         ALTER TABLE registration_settings ADD COLUMN max_participants INTEGER DEFAULT NULL;
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
-                   WHERE table_name = 'registration_settings' AND column_name = 'browser_access_enabled') THEN
-        ALTER TABLE registration_settings ADD COLUMN browser_access_enabled BOOLEAN DEFAULT FALSE;
     END IF;
 END $$; 
